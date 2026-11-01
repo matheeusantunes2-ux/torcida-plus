@@ -1,0 +1,38 @@
+# Dependências e ambientes
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Segredos
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Expo e Android
+.expo/
+dist/
+web-build/
+android/.gradle/
+android/local.properties
+*.jks
+*.keystore
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# Sistema
+.DS_Store
+
+# Repositórios Git internos e arquivos locais
+**/.git/
+**/.expo/
+*.backup
