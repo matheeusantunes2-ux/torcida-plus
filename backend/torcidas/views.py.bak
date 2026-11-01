@@ -1,0 +1,23 @@
+from django.db import transaction
+from rest_framework import permissions, viewsets
+from .models import Torcida, Membro
+from .serializers import TorcidaSerializer
+
+
+class TorcidaViewSet(viewsets.ModelViewSet):
+    serializer_class = TorcidaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Torcida.objects.filter(
+            membros__usuario=self.request.user
+        ).distinct()
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        torcida = serializer.save()
+        Membro.objects.create(
+            usuario=self.request.user,
+            torcida=torcida,
+            papel=Membro.Papel.ADMIN,
+        )

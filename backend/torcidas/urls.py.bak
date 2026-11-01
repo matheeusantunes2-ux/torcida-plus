@@ -1,0 +1,6 @@
+from rest_framework.routers import DefaultRouter
+from .views import TorcidaViewSet
+
+router = DefaultRouter()
+router.register("", TorcidaViewSet, basename="torcida")
+urlpatterns = router.urls
