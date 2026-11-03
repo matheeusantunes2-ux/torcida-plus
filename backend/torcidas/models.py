@@ -69,7 +69,7 @@ class ConviteTorcida(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["torcida", "expira_em"]),
+            models.Index(fields=["torcida", "expira_em"], name="torcidas_co_torcida_0d17a1_idx"),
         ]
 
     @property
