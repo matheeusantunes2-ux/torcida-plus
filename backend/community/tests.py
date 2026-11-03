@@ -31,13 +31,13 @@ class IsolamentoPublicacoesTests(APITestCase):
         self.client.force_authenticate(user=self.estranho)
         response = self.client.get("/api/comunidade/publicacoes/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["results"], [])
+        self.assertEqual(len(response.data), 0)
 
     def test_membro_consegue_listar_publicacao(self):
         self.client.force_authenticate(user=self.autor)
         response = self.client.get("/api/comunidade/publicacoes/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(len(response.data), 1)
 
     def test_usuario_de_fora_nao_consegue_criar_publicacao_na_torcida(self):
         self.client.force_authenticate(user=self.estranho)
