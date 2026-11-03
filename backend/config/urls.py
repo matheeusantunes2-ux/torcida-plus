@@ -11,7 +11,10 @@ urlpatterns = [
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/torcidas/", include("torcidas.urls")),
     path("api/comunidade/", include("community.urls")),
+    path("api/store/", include("store.urls")),
+    path("api/events/", include("events.urls")),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
