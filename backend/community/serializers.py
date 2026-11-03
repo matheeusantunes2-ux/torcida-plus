@@ -21,6 +21,9 @@ class PublicacaoSerializer(serializers.ModelSerializer):
 
     autor_nome_exibicao = serializers.SerializerMethodField()
     autor_foto = serializers.SerializerMethodField()
+    total_curtidas = serializers.SerializerMethodField()
+    total_comentarios = serializers.SerializerMethodField()
+    curtida_pelo_usuario = serializers.SerializerMethodField()
 
     class Meta:
         model = Publicacao
