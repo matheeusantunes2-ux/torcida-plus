@@ -1,54 +1,69 @@
-name: Compilar APK TORCIDA+
+name: Android APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - desenvolvimento-seguro
+    paths:
+      - "frontend/**"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-apk:
+    name: Build TORCIDA+ Android APK
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
 
     steps:
-      - name: Baixar projeto
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configurar Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "20"
 
-      - name: Configurar Java
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - name: Instalar dependências
-        working-directory: apps/mobile
-        run: npm ci
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Gerar projeto Android
-        working-directory: apps/mobile
-        run: npx expo prebuild --platform android --no-install
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: Preparar bundle JavaScript
-        working-directory: apps/mobile
-        run: |
-          mkdir -p android/app/src/main/assets
-          mkdir -p android/app/src/main/res
-          npx expo export:embed --platform android --dev false --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+      - name: Build web app
+        run: npm run build
 
-      - name: Compilar APK
-        working-directory: apps/mobile/android
+      - name: Generate Android project
+        run: npx cap add android
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: frontend/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Disponibilizar APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: torcida-plus-apk
-          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: torcida-plus-debug-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
