@@ -1,124 +1,25 @@
-import { FormEvent, useState } from "react";
-import { LiveKitRoom, VideoConference } from "@livekit/components-react";
+import {FormEvent,useState} from "react";
+import {LiveKitRoom,VideoConference} from "@livekit/components-react";
 import "@livekit/components-styles";
-import { PhoneCall, Video, ShieldCheck, Users, ArrowLeft, LoaderCircle, LogOut } from "lucide-react";
-
-const API = import.meta.env.VITE_API_URL || "";
-type RoomToken = { server_url: string; room: string; token: string };
-type Tokens = { access: string; refresh: string };
-
-export default function App() {
-  const [tokens, setTokens] = useState<Tokens>(() => ({
-    access: sessionStorage.getItem("torcida_access") || "",
-    refresh: sessionStorage.getItem("torcida_refresh") || ""
-  }));
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [conversationId, setConversationId] = useState("1");
-  const [room, setRoom] = useState<RoomToken | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
-  function saveTokens(value: Tokens) {
-    setTokens(value);
-    if (value.access) sessionStorage.setItem("torcida_access", value.access);
-    else sessionStorage.removeItem("torcida_access");
-    if (value.refresh) sessionStorage.setItem("torcida_refresh", value.refresh);
-    else sessionStorage.removeItem("torcida_refresh");
-  }
-
-  async function result(response: Response) {
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const detail = data.detail || Object.values(data).flat().join(" ");
-      throw new Error(typeof detail === "string" ? detail : "Não foi possível concluir.");
-    }
-    return data;
-  }
-
-  async function authenticate(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(""); setMessage("");
-    try {
-      if (mode === "register") {
-        await result(await fetch(API + "/api/auth/cadastro/", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: username.trim(), email: email.trim(), password })
-        }));
-        setMode("login"); setMessage("Cadastro realizado. Entre com seus dados.");
-      } else {
-        const data = await result(await fetch(API + "/api/auth/login/", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: username.trim(), password })
-        }));
-        saveTokens({ access: data.access, refresh: data.refresh });
-        setPassword(""); setMessage("Login realizado.");
-      }
-    } catch (e) { setError(e instanceof Error ? e.message : "Falha ao autenticar."); }
-    finally { setBusy(false); }
-  }
-
-  async function validAccess() {
-    const check = await fetch(API + "/api/auth/verify/", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: tokens.access })
-    });
-    if (check.ok) return tokens.access;
-    if (!tokens.refresh) throw new Error("Sessão expirada. Entre novamente.");
-    const data = await result(await fetch(API + "/api/auth/refresh/", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh: tokens.refresh })
-    }));
-    saveTokens({ access: data.access, refresh: data.refresh || tokens.refresh });
-    return data.access as string;
-  }
-
-  async function startCall() {
-    if (!/^\\d+$/.test(conversationId)) { setError("Informe um ID de conversa válido."); return; }
-    setBusy(true); setError("");
-    try {
-      const access = await validAccess();
-      const data = await result(await fetch(API + "/api/chat/conversas/" + conversationId + "/chamada/token/", {
-        method: "POST", headers: { Authorization: "Bearer " + access }
-      }));
-      setRoom(data as RoomToken);
-    } catch (e) { setError(e instanceof Error ? e.message : "Falha ao iniciar chamada."); }
-    finally { setBusy(false); }
-  }
-
-  function logout() { saveTokens({ access: "", refresh: "" }); setRoom(null); setMessage("Você saiu da conta."); }
-
-  if (room) return <main className="call-screen">
-    <header className="call-top"><button className="icon-btn" onClick={() => setRoom(null)} aria-label="Voltar"><ArrowLeft /></button><div><b>TORCIDA+ AO VIVO</b><span>Sala {room.room}</span></div><span className="secure"><ShieldCheck size={16}/> Acesso autorizado</span></header>
-    <section className="conference"><LiveKitRoom serverUrl={room.server_url} token={room.token} connect audio video onDisconnected={() => setRoom(null)}><VideoConference /></LiveKitRoom></section>
-    <p className="call-note">A criptografia ponta a ponta ainda não está habilitada nesta chamada.</p>
-  </main>;
-
-  return <main className="page">
-    <nav className="nav"><div className="brand-mark">T+</div><div className="brand">TORCIDA<span>+</span></div>{tokens.access && <button className="logout" onClick={logout}><LogOut size={15}/> Sair</button>}</nav>
-    <section className="hero">
-      <div className="intro"><div className="eyebrow"><span/> CONEXÃO DA TORCIDA</div><h1>A arquibancada<br/><em>também é aqui.</em></h1><p>Entre na comunidade, reúna sua galera e viva cada conversa.</p></div>
-      <div className="call-card">
-        {!tokens.access ? <>
-          <div className="card-head"><div className="video-icon"><ShieldCheck/></div><div><h2>{mode === "login" ? "Bem-vindo de volta" : "Crie sua conta"}</h2><p>{mode === "login" ? "Acesse sua conta TORCIDA+." : "Faça parte da sua comunidade."}</p></div></div>
-          <div className="auth-tabs"><button className={mode === "login" ? "active" : ""} onClick={() => {setMode("login");setError("");}}>Entrar</button><button className={mode === "register" ? "active" : ""} onClick={() => {setMode("register");setError("");}}>Cadastrar</button></div>
-          <form onSubmit={authenticate}>
-            <label htmlFor="username">Usuário</label><input id="username" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required minLength={3}/>
-            {mode === "register" && <><label htmlFor="email">E-mail</label><input id="email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required/></>}
-            <label htmlFor="password">Senha</label><input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={e=>setPassword(e.target.value)} required minLength={8}/>
-            <button className="start-btn" type="submit" disabled={busy}>{busy ? <LoaderCircle className="spin"/> : <ShieldCheck size={18}/>} {busy ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}</button>
-          </form>
-        </> : <>
-          <div className="card-head"><div className="video-icon"><Video/></div><div><h2>Iniciar chamada</h2><p>Reúna sua torcida por áudio e vídeo.</p></div></div>
-          <label htmlFor="conversation">ID da conversa</label><input id="conversation" inputMode="numeric" value={conversationId} onChange={e=>setConversationId(e.target.value)}/>
-          <button className="start-btn" onClick={startCall} disabled={busy}>{busy ? <LoaderCircle className="spin"/> : <PhoneCall size={18}/>} {busy ? "Conectando..." : "Entrar na chamada"}</button>
-          <div className="features"><span><Video size={15}/> Vídeo</span><span><Users size={15}/> Grupo</span></div>
-        </>}
-        {error && <div className="error" role="alert">{error}</div>}{message && <div className="notice" role="status">{message}</div>}
-      </div>
-    </section>
-    <footer><ShieldCheck size={16}/> Autenticação pela API TORCIDA+ <span>•</span> Chamadas LiveKit</footer>
-  </main>;
+import {Home,MessageCircle,CalendarDays,ShoppingCart,Menu,Search,Bell,UserCircle,ShieldCheck,Video,ArrowLeft,LoaderCircle,LogOut,Heart,MessageSquare,Share2,Users,Ticket,Settings,ChevronRight,Flame} from "lucide-react";
+const API=import.meta.env.VITE_API_URL||"";
+type Tokens={access:string;refresh:string}; type Room={server_url:string;room:string;token:string}; type Tab="Início"|"Chat"|"Eventos"|"Loja"|"Mais";
+export default function App(){
+const [tokens,setTokens]=useState<Tokens>(()=>({access:sessionStorage.getItem("torcida_access")||"",refresh:sessionStorage.getItem("torcida_refresh")||""}));
+const [mode,setMode]=useState<"login"|"register">("login"),[username,setUsername]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[tab,setTab]=useState<Tab>("Início"),[conversationId,setConversationId]=useState("1"),[room,setRoom]=useState<Room|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
+function save(v:Tokens){setTokens(v);v.access?sessionStorage.setItem("torcida_access",v.access):sessionStorage.removeItem("torcida_access");v.refresh?sessionStorage.setItem("torcida_refresh",v.refresh):sessionStorage.removeItem("torcida_refresh")}
+async function result(r:Response){const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||Object.values(d).flat().join(" ")||"Não foi possível concluir.");return d}
+async function authenticate(e:FormEvent){e.preventDefault();setBusy(true);setError("");setMessage("");try{if(mode==="register"){await result(await fetch(API+"/api/auth/cadastro/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username.trim(),email:email.trim(),password})}));setMode("login");setMessage("Cadastro realizado. Entre com seus dados.")}else{const d=await result(await fetch(API+"/api/auth/login/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username.trim(),password})}));save({access:d.access,refresh:d.refresh});setPassword("");setTab("Início")}}catch(x){setError(x instanceof Error?x.message:"Falha ao autenticar.")}finally{setBusy(false)}}
+async function access(){const r=await fetch(API+"/api/auth/verify/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:tokens.access})});if(r.ok)return tokens.access;if(!tokens.refresh)throw Error("Sessão expirada. Entre novamente.");const d=await result(await fetch(API+"/api/auth/refresh/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh:tokens.refresh})}));save({access:d.access,refresh:d.refresh||tokens.refresh});return d.access as string}
+async function call(){if(!/^\d+$/.test(conversationId)){setError("Informe um ID válido.");return}setBusy(true);setError("");try{const t=await access();const d=await result(await fetch(API+"/api/chat/conversas/"+conversationId+"/chamada/token/",{method:"POST",headers:{Authorization:"Bearer "+t}}));setRoom(d as Room)}catch(x){setError(x instanceof Error?x.message:"Falha ao iniciar chamada.")}finally{setBusy(false)}}
+function logout(){save({access:"",refresh:""});setRoom(null);setTab("Início")}
+if(room)return <main className="call-screen"><header className="call-top"><button className="icon-btn" onClick={()=>setRoom(null)}><ArrowLeft/></button><b>TORCIDA+ AO VIVO · {room.room}</b></header><section className="conference"><LiveKitRoom serverUrl={room.server_url} token={room.token} connect audio video onDisconnected={()=>setRoom(null)}><VideoConference/></LiveKitRoom></section><p className="call-note">Criptografia ponta a ponta ainda não habilitada nesta chamada.</p></main>;
+if(!tokens.access)return <main className="auth-page"><section className="auth-panel"><div className="crest"><b>★</b><div className="crest-shield"><Users/><strong>TORCIDA<span>+</span></strong></div></div><h1>Conectando a nação<br/>em um só <em>lugar!</em></h1><div className="auth-box"><h2>{mode==="login"?"Entre para a torcida":"Crie sua conta"}</h2><p>A arquibancada também é aqui.</p><div className="auth-tabs"><button className={mode==="login"?"active":""} onClick={()=>setMode("login")}>Entrar</button><button className={mode==="register"?"active":""} onClick={()=>setMode("register")}>Criar conta</button></div><form onSubmit={authenticate}><label>Usuário</label><input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username" required minLength={3}/>{mode==="register"&&<><label>E-mail</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></>}<label>Senha</label><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete={mode==="login"?"current-password":"new-password"} required minLength={8}/><button className="primary-btn" disabled={busy}>{busy?<LoaderCircle className="spin"/>:null}{busy?"Aguarde...":mode==="login"?"Entrar com E-mail":"Criar minha conta"}</button></form>{error&&<div className="error">{error}</div>}{message&&<div className="notice">{message}</div>}<small>TORCIDA+ · A paixão nos conecta.</small></div></section></main>;
+const nav=[{name:"Início" as Tab,icon:Home},{name:"Chat" as Tab,icon:MessageCircle},{name:"Eventos" as Tab,icon:CalendarDays},{name:"Loja" as Tab,icon:ShoppingCart},{name:"Mais" as Tab,icon:Menu}];
+return <main className="app-shell"><header className="app-header"><div className="wordmark">TORCIDA<span>+</span></div><div className="header-actions"><button><Search/></button><button><Bell/></button><button className="avatar-mini">M</button></div></header><nav className="desktop-tabs">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/>{n.name}</button>)}</nav><section className="dashboard"><div className="welcome-row"><div><span className="kicker"><Flame/> A PAIXÃO NOS UNE</span><h1>{tab==="Início"?"Fala, torcedor!":tab}</h1><p>Fique por dentro de tudo que acontece na sua torcida.</p></div><button className="outline-btn" onClick={logout}><LogOut/> Sair</button></div>
+{tab==="Início"&&<><div className="featured-banner"><span className="live-pill">● DESTAQUE DA TORCIDA</span><h2>A arquibancada<br/>é nossa casa.</h2><p>Notícias, resenha e emoção em um só lugar.</p><button onClick={()=>setTab("Chat")}>Entrar na conversa <ChevronRight/></button></div><div className="section-title"><h2>Movimento da torcida</h2><span>VER TUDO ›</span></div><article className="feed-card"><div className="post-head"><div className="post-avatar">T+</div><div><b>Torcida em Movimento</b><small>Comunidade oficial · há 12 min</small></div></div><div className="post-art"><strong>JUNTOS<br/>SOMOS MAIS<br/><em>FORTES.</em></strong><small>TORCIDA+ · A VOZ DA ARQUIBANCADA</small></div><p>A paixão não tem distância. Reúna sua galera, compartilhe a emoção e fortaleça sua comunidade!</p><div className="post-actions"><button><Heart/> Curtir</button><button onClick={()=>setTab("Chat")}><MessageSquare/> Comentar</button><button><Share2/> Compartilhar</button></div></article><div className="quick-grid"><button onClick={()=>setTab("Chat")}><MessageCircle/><b>Chat da torcida</b><small>Converse com a galera</small></button><button onClick={()=>setTab("Eventos")}><Ticket/><b>Próximos eventos</b><small>Jogos e caravanas</small></button><button onClick={()=>setTab("Loja")}><ShoppingCart/><b>Loja da torcida</b><small>Produtos e materiais</small></button></div></>}
+{tab==="Chat"&&<div className="content-card"><h2>Chat da Torcida</h2><p>Converse com os membros da sua comunidade.</p><label>ID da conversa</label><input className="dark-input" inputMode="numeric" value={conversationId} onChange={e=>setConversationId(e.target.value)}/><button className="primary-btn" onClick={call} disabled={busy}><Video/> {busy?"Conectando...":"Iniciar chamada ao vivo"}</button>{error&&<div className="error">{error}</div>}</div>}
+{tab==="Eventos"&&<div className="quick-grid"><div className="content-card"><CalendarDays/><h3>Jogos e encontros</h3><p>Confira os próximos eventos da sua comunidade.</p><small className="coming">Módulo em desenvolvimento</small></div><div className="content-card"><Users/><h3>Caravanas</h3><p>Organize viagens e reúna sua torcida.</p><small className="coming">Módulo em desenvolvimento</small></div></div>}
+{tab==="Loja"&&<div className="content-card"><ShoppingCart/><h2>Loja da Torcida</h2><p>Camisas, materiais e produtos da comunidade.</p><small className="coming">Catálogo e pagamentos na próxima etapa.</small></div>}
+{tab==="Mais"&&<div className="quick-grid"><button><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></button><button><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button><button><Settings/><b>Configurações</b><small>Privacidade e segurança</small></button></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
 }
