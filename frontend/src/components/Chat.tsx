@@ -5,7 +5,8 @@ type Tokens={access:string;refresh:string};
 type Conversation={id:number;torcida:number;tipo:"privada"|"grupo";nome:string;participantes:string[];ultima_mensagem:{id:number;autor:string;conteudo:string;criada_em:string}|null};
 type Message={id:number;autor_id:number;autor_username:string;conteudo:string;criada_em:string};
 type Member={id:number;usuario:number;username:string;papel:string};
-const API=import.meta.env.VITE_API_URL||"";\nfunction currentUserId(token:string){try{const payload=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return Number(JSON.parse(atob(payload)).user_id)||0}catch{return 0}}
+const API=import.meta.env.VITE_API_URL||"";
+function currentUserId(token:string){try{const payload=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return Number(JSON.parse(atob(payload)).user_id)||0}catch{return 0}}
 
 export default function Chat({tokens,onTokens}:{tokens:Tokens;onTokens:(v:Tokens)=>void}){
  const [conversations,setConversations]=useState<Conversation[]>([]);
