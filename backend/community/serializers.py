@@ -31,6 +31,9 @@ class PublicacaoSerializer(serializers.ModelSerializer):
             "autor_username",
             "autor_nome_exibicao",
             "autor_foto",
+            "total_curtidas",
+            "total_comentarios",
+            "curtida_pelo_usuario",
             "texto",
             "imagem",
             "criada_em",
@@ -50,6 +53,16 @@ class PublicacaoSerializer(serializers.ModelSerializer):
         perfil = getattr(obj.autor, "perfil", None)
         nome = perfil.nome_exibicao.strip() if perfil else ""
         return nome or obj.autor.username
+
+    def get_total_curtidas(self, obj):
+        return obj.curtidas.count()
+
+    def get_total_comentarios(self, obj):
+        return obj.comentarios.count()
+
+    def get_curtida_pelo_usuario(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.curtidas.filter(usuario=request.user).exists())
 
     def get_autor_foto(self, obj):
         perfil = getattr(obj.autor, "perfil", None)
