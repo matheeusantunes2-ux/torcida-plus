@@ -6,3 +6,5 @@
 
 .post-avatar-img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:1px solid #ed1029}
 .post-copy{white-space:pre-wrap;overflow-wrap:anywhere}
+
+.publish-form h2{font-size:16px;margin:0 0 10px}.publish-form textarea{width:100%;min-height:100px;background:#09090e;border:1px solid #35353e;border-radius:10px;padding:13px;color:white;margin-top:12px;font:inherit}.publish-form input[type=file]{width:100%;color:#aaa;font-size:11px}.publish-form .primary-btn{max-width:180px;margin-left:auto}.post-image{display:block;width:100%;max-height:420px;object-fit:cover;border-radius:10px;margin:12px 0}.post-actions button.liked{color:#ff4059}.comments-panel{border-top:1px solid #ffffff18;margin-top:12px;padding-top:12px}.comment-row{display:flex;flex-direction:column;gap:3px;padding:8px 0;font-size:12px}.comment-row b{color:#ff7182}.comment-compose{display:flex;gap:8px;margin-top:10px}.comment-compose input{flex:1;min-width:0;background:#09090e;border:1px solid #35353e;border-radius:8px;padding:10px;color:white}.comment-compose button{border:0;border-radius:8px;background:#ed1029;color:white;padding:0 13px}
