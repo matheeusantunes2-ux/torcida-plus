@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/torcidas/", include("torcidas.urls")),
     path("api/comunidade/", include("community.urls")),
     path("api/chat/", include("chat.urls")),
+    path("api/loja/", include("store.urls")),
 ]
 
 if settings.DEBUG:
