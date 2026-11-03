@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Torcida, Membro, ConviteTorcida
+from community.models import Notificacao
 from .member_serializers import MembroSerializer
 
 
@@ -114,6 +115,14 @@ class AceitarConviteView(APIView):
                 )
                 convite.usos += 1
                 convite.save(update_fields=["usos"])
+                if convite.criado_por_id != request.user.id:
+                    Notificacao.objects.create(
+                        destinatario=convite.criado_por,
+                        ator=request.user,
+                        tipo=Notificacao.Tipo.CONVITE,
+                        texto=f"{request.user.username} entrou na torcida {convite.torcida.nome}.",
+                        referencia=f"torcida:{convite.torcida_id}",
+                    )
         except ConviteTorcida.DoesNotExist:
             raise ValidationError({"token": "Convite inválido."})
         except IntegrityError:
