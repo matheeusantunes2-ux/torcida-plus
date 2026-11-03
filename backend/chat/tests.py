@@ -33,6 +33,38 @@ class ChatApiTests(APITestCase):
         }, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["conteudo"], "Vamos ao jogo!")
+        from community.models import Notificacao
+        self.assertEqual(
+            Notificacao.objects.filter(
+                destinatario=self.outro,
+                ator=self.admin,
+                tipo=Notificacao.Tipo.MENSAGEM,
+                referencia=f"conversa:{conversa_id}",
+            ).count(),
+            1,
+        )
+        self.assertFalse(
+            Notificacao.objects.filter(
+                destinatario=self.admin,
+                tipo=Notificacao.Tipo.MENSAGEM,
+            ).exists()
+        )
+
+    def test_notificacoes_nao_sao_visiveis_para_outro_usuario(self):
+        from community.models import Notificacao
+        conversa_id = self.criar_conversa()
+        self.client.post(
+            f"/api/chat/conversas/{conversa_id}/mensagens/",
+            {"conteudo": "Mensagem privada"},
+            format="json",
+        )
+        self.client.force_authenticate(self.estranho)
+        response = self.client.get("/api/comunidade/notificacoes/")
+        self.assertEqual(response.status_code, 200)
+        results = response.data.get("results", [])
+        self.assertFalse(
+            any(item.get("tipo") == Notificacao.Tipo.MENSAGEM for item in results)
+        )
 
     def test_usuario_de_fora_nao_acessa_conversa(self):
         conversa_id = self.criar_conversa()
