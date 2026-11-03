@@ -5,6 +5,7 @@ from .views import (
     PublicacaoViewSet,
     ComentarioViewSet,
     CurtidaView,
+    NotificacaoViewSet,
 )
 
 router = DefaultRouter()
@@ -14,7 +15,14 @@ router.register(
     basename="publicacao",
 )
 
+notificacoes = NotificacaoViewSet.as_view({'get': 'list'})
+marcar_todas = NotificacaoViewSet.as_view({'post': 'mark_all_read'})
+marcar_uma = NotificacaoViewSet.as_view({'post': 'mark_one_read'})
+
 urlpatterns = [
+    path('notificacoes/', notificacoes, name='notificacoes'),
+    path('notificacoes/ler-todas/', marcar_todas, name='notificacoes-ler-todas'),
+    path('notificacoes/<int:pk>/ler/', marcar_uma, name='notificacao-ler'),
     path(
         "publicacoes/<int:publicacao_id>/comentarios/",
         ComentarioViewSet.as_view({
