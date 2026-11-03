@@ -7,6 +7,7 @@ on:
       - desenvolvimento-seguro
     paths:
       - "frontend/**"
+      - "backend/**"
       - ".github/workflows/android-apk.yml"
 
 permissions:
