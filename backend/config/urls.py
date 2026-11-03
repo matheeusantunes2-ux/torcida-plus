@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/auth/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("api/torcidas/", include("torcidas.urls")),
     path("api/comunidade/", include("community.urls")),
+    path("api/chat/", include("chat.urls")),
 ]
 
 if settings.DEBUG:
