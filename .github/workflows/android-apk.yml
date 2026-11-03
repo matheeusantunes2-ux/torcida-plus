@@ -52,6 +52,8 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Build web app
+        env:
+          VITE_API_URL: https://torcida-plus.onrender.com
         run: npm run build
 
       - name: Generate Android project
