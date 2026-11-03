@@ -74,3 +74,23 @@ class Curtida(models.Model):
 
     def __str__(self):
         return f"Usuário {self.usuario_id} curtiu publicação {self.publicacao_id}"
+
+
+class Notificacao(models.Model):
+    class Tipo(models.TextChoices):
+        CURTIDA = "curtida", "Curtida"
+        COMENTARIO = "comentario", "Comentário"
+        MENSAGEM = "mensagem", "Mensagem"
+        CONVITE = "convite", "Convite"
+
+    destinatario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notificacoes_torcida")
+    ator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="notificacoes_enviadas_torcida")
+    tipo = models.CharField(max_length=20, choices=Tipo.choices)
+    texto = models.CharField(max_length=240)
+    referencia = models.CharField(max_length=160, blank=True)
+    criada_em = models.DateTimeField(auto_now_add=True)
+    lida_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-criada_em"]
+        indexes = [models.Index(fields=["destinatario", "lida_em", "-criada_em"], name="notif_user_read_date_idx")]
