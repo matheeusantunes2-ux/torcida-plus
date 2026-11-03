@@ -1,6 +1,7 @@
 import {FormEvent,useEffect,useState} from "react";
 import {LiveKitRoom,VideoConference} from "@livekit/components-react";
 import Chat from "./components/Chat";
+import Store from "./components/Store";
 import "@livekit/components-styles";
 import {Home,MessageCircle,CalendarDays,ShoppingCart,Menu,Search,Bell,UserCircle,ShieldCheck,Video,ArrowLeft,LoaderCircle,LogOut,Heart,MessageSquare,Share2,Users,Ticket,Settings,ChevronRight,Flame} from "lucide-react";
 const API=import.meta.env.VITE_API_URL||"";
@@ -32,6 +33,6 @@ return <main className="app-shell"><header className="app-header"><div className
 {tab==="Notificações"&&<div className="content-card"><div className="notification-heading"><h2>Notificações</h2><button className="outline-btn" onClick={markAllNoticesRead} disabled={!unread}>Marcar todas como lidas</button></div>{noticeLoading&&<p>Carregando notificações...</p>}{noticeError&&<div className="error">{noticeError}</div>}{!noticeLoading&&notices.length===0&&!noticeError&&<p>Você está em dia! Nenhuma notificação por enquanto.</p>}{notices.map(n=><button className={"notification-row "+(!n.lida_em?"unread":"")} key={n.id} onClick={()=>markNoticeRead(n.id)}><span className="notification-icon">{n.tipo==="CURTIDA"?"♥":n.tipo==="COMENTARIO"?"✎":"●"}</span><span><b>{n.ator_username||"TORCIDA+"}</b><small>{n.texto}</small><small>{new Date(n.criada_em).toLocaleString("pt-BR")}</small></span>{!n.lida_em&&<i/>}</button>)}</div>}
 {tab==="Chat"&&<Chat tokens={tokens} onTokens={save}/>}
 {tab==="Eventos"&&<div className="quick-grid"><div className="content-card"><CalendarDays/><h3>Jogos e encontros</h3><p>Confira os próximos eventos da sua comunidade.</p><small className="coming">Módulo em desenvolvimento</small></div><div className="content-card"><Users/><h3>Caravanas</h3><p>Organize viagens e reúna sua torcida.</p><small className="coming">Módulo em desenvolvimento</small></div></div>}
-{tab==="Loja"&&<div className="content-card"><ShoppingCart/><h2>Loja da Torcida</h2><p>Camisas, materiais e produtos da comunidade.</p><small className="coming">Catálogo e pagamentos na próxima etapa.</small></div>}
+{tab==="Loja"&&<Store tokens={tokens} onTokens={save}/>}
 {tab==="Mais"&&<div className="quick-grid"><button><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></button><button><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button><button><Settings/><b>Configurações</b><small>Privacidade e segurança</small></button></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
 }
