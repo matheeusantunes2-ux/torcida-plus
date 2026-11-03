@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 
 from torcidas.models import Membro
-from .models import Publicacao
+from .models import Publicacao, Notificacao
 from .permissions import AutorPodeEditarPublicacao
 from .serializers import PublicacaoSerializer
 
@@ -43,6 +43,7 @@ from rest_framework.views import APIView
 
 from .models import Comentario, Curtida
 from .comentario_serializers import ComentarioSerializer
+from .notificacao_serializers import NotificacaoSerializer
 
 
 class ComentarioViewSet(viewsets.ModelViewSet):
@@ -69,10 +70,9 @@ class ComentarioViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         publicacao = self.get_publicacao()
-        serializer.save(
-            publicacao=publicacao,
-            autor=self.request.user,
-        )
+        serializer.save(publicacao=publicacao, autor=self.request.user)
+        if publicacao.autor_id != self.request.user.id:
+            Notificacao.objects.create(destinatario=publicacao.autor, ator=self.request.user, tipo=Notificacao.Tipo.COMENTARIO, texto="{} comentou na sua publicação.".format(self.request.user.username), referencia="publicacao:{}".format(publicacao.pk))
 
 
 class CurtidaView(APIView):
@@ -102,10 +102,9 @@ class CurtidaView(APIView):
 
         try:
             with transaction.atomic():
-                curtida, criada = Curtida.objects.get_or_create(
-                    publicacao=publicacao,
-                    usuario=request.user,
-                )
+                curtida, criada = Curtida.objects.get_or_create(publicacao=publicacao, usuario=request.user)
+                if criada and publicacao.autor_id != request.user.id:
+                    Notificacao.objects.create(destinatario=publicacao.autor, ator=request.user, tipo=Notificacao.Tipo.CURTIDA, texto="{} curtiu sua publicação.".format(request.user.username), referencia="publicacao:{}".format(publicacao.pk))
         except IntegrityError:
             # Proteção adicional para requisições simultâneas.
             criada = False
@@ -139,3 +138,33 @@ class CurtidaView(APIView):
             "curtida_pelo_usuario": False,
             "total_curtidas": publicacao.curtidas.count(),
         })
+
+
+class NotificacaoViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = NotificacaoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notificacao.objects.filter(destinatario=self.request.user).select_related("ator")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        unread = queryset.filter(lida_em__isnull=True).count()
+        page = self.paginate_queryset(queryset)
+        data = self.get_serializer(page if page is not None else queryset, many=True).data
+        if page is not None:
+            response = self.get_paginated_response(data)
+            response.data["nao_lidas"] = unread
+            return response
+        return Response({"nao_lidas": unread, "results": data})
+
+    def mark_all_read(self, request):
+        from django.utils import timezone
+        self.get_queryset().filter(lida_em__isnull=True).update(lida_em=timezone.now())
+        return Response({"mensagem": "Notificações marcadas como lidas."})
+
+    def mark_one_read(self, request, pk=None):
+        from django.utils import timezone
+        item = get_object_or_404(self.get_queryset(), pk=pk)
+        Notificacao.objects.filter(pk=item.pk, destinatario=request.user, lida_em__isnull=True).update(lida_em=timezone.now())
+        return Response({"mensagem": "Notificação marcada como lida."})
