@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -5,6 +6,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from community.models import Notificacao
 
 from .models import Conversa, ParticipanteConversa, Mensagem
 from .serializers import ConversaSerializer, MensagemSerializer
@@ -56,9 +59,23 @@ class ListaCriarMensagemView(APIView):
         conversa = obter_conversa(request.user, conversa_id)
         serializer = MensagemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        mensagem = Mensagem.objects.create(
-            conversa=conversa, autor=request.user,
-            conteudo=serializer.validated_data["conteudo"],
-        )
-        conversa.save(update_fields=["atualizada_em"])
+        with transaction.atomic():
+            mensagem = Mensagem.objects.create(
+                conversa=conversa, autor=request.user,
+                conteudo=serializer.validated_data["conteudo"],
+            )
+            conversa.save(update_fields=["atualizada_em"])
+            destinatarios = conversa.participantes.filter(
+                ativo=True
+            ).exclude(usuario=request.user).values_list("usuario_id", flat=True)
+            Notificacao.objects.bulk_create([
+                Notificacao(
+                    destinatario_id=usuario_id,
+                    ator=request.user,
+                    tipo=Notificacao.Tipo.MENSAGEM,
+                    texto="Você recebeu uma nova mensagem.",
+                    referencia=f"conversa:{conversa.pk}",
+                )
+                for usuario_id in destinatarios
+            ])
         return Response(MensagemSerializer(mensagem).data, status=status.HTTP_201_CREATED)
