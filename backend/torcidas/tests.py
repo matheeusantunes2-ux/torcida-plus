@@ -81,6 +81,30 @@ class ConvitesTorcidasTests(APITestCase):
         self.assertTrue(Membro.objects.filter(
             usuario=self.convidado, torcida=self.torcida
         ).exists())
+        from community.models import Notificacao
+        notificacao = Notificacao.objects.get(
+            destinatario=self.admin,
+            ator=self.convidado,
+            tipo=Notificacao.Tipo.CONVITE,
+            referencia=f"torcida:{self.torcida.pk}",
+        )
+        self.assertIn("convidado", notificacao.texto)
+
+    def test_convite_aceito_nao_notifica_o_proprio_usuario(self):
+        from community.models import Notificacao
+        resposta = self.criar_convite()
+        token = resposta.data["token"]
+        self.client.force_authenticate(user=self.admin)
+        aceite = self.client.post(
+            "/api/torcidas/convites/aceitar/", {"token": token}, format="json"
+        )
+        self.assertEqual(aceite.status_code, 400)
+        self.assertFalse(
+            Notificacao.objects.filter(
+                destinatario=self.admin,
+                tipo=Notificacao.Tipo.CONVITE,
+            ).exists()
+        )
 
     def test_convite_nao_pode_ser_usado_acima_do_limite(self):
         resposta = self.criar_convite(limite_usos=1)
