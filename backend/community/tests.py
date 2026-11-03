@@ -53,3 +53,53 @@ class IsolamentoPublicacoesTests(APITestCase):
         self.assertFalse(
             Publicacao.objects.filter(texto="Tentativa indevida").exists()
         )
+
+from .models import Notificacao
+
+
+class IsolamentoNotificacoesTests(APITestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username="dono_notificacao", password="Senha-Forte-2026!"
+        )
+        self.outro = User.objects.create_user(
+            username="outro_notificacao", password="Senha-Forte-2026!"
+        )
+        self.notificacao = Notificacao.objects.create(
+            destinatario=self.usuario,
+            ator=self.outro,
+            tipo=Notificacao.Tipo.MENSAGEM,
+            texto="Você recebeu uma nova mensagem.",
+            referencia="conversa:123",
+        )
+
+    def test_usuario_lista_apenas_proprias_notificacoes(self):
+        self.client.force_authenticate(user=self.outro)
+        response = self.client.get("/api/comunidade/notificacoes/")
+        self.assertEqual(response.status_code, 200)
+        resultados = response.data.get("results", [])
+        ids = [item["id"] for item in resultados]
+        self.assertNotIn(self.notificacao.pk, ids)
+
+    def test_usuario_nao_pode_marcar_notificacao_alheia_como_lida(self):
+        self.client.force_authenticate(user=self.outro)
+        response = self.client.post(
+            f"/api/comunidade/notificacoes/{self.notificacao.pk}/ler/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.notificacao.refresh_from_db()
+        self.assertIsNone(self.notificacao.lida_em)
+
+    def test_destinatario_pode_marcar_propria_notificacao_como_lida(self):
+        self.client.force_authenticate(user=self.usuario)
+        response = self.client.post(
+            f"/api/comunidade/notificacoes/{self.notificacao.pk}/ler/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.notificacao.refresh_from_db()
+        self.assertIsNotNone(self.notificacao.lida_em)
+
