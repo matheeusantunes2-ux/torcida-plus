@@ -8,7 +8,7 @@ User = get_user_model()
 
 
 class MensagemSerializer(serializers.ModelSerializer):
-    autor_id = serializers.IntegerField(source="autor_id", read_only=True)
+    autor_id = serializers.IntegerField(source="autor.id", read_only=True)
     autor_username = serializers.CharField(source="autor.username", read_only=True)
 
     class Meta:
