@@ -1,5 +1,6 @@
 import {FormEvent,useEffect,useState} from "react";
-import {LiveKitRoom,VideoConference} from "@livekit/components-react";\nimport Chat from "./components/Chat";
+import {LiveKitRoom,VideoConference} from "@livekit/components-react";
+import Chat from "./components/Chat";
 import "@livekit/components-styles";
 import {Home,MessageCircle,CalendarDays,ShoppingCart,Menu,Search,Bell,UserCircle,ShieldCheck,Video,ArrowLeft,LoaderCircle,LogOut,Heart,MessageSquare,Share2,Users,Ticket,Settings,ChevronRight,Flame} from "lucide-react";
 const API=import.meta.env.VITE_API_URL||"";
