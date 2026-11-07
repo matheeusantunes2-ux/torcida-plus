@@ -163,4 +163,4 @@ def test_superuser_global_pode_gerenciar_loja_sem_ser_membro(self):
             "preco": "19.90",
             "quantidade": 5,
         }, format="json")
-        self.assertEqual(cadastro.status_code, 200)
+        self.assertEqual(cadastro.status_code, 201)
