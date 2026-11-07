@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Conversa, ParticipanteConversa
+from accounts.permissions import is_platform_admin
 
 
 class CriarTokenSalaView(APIView):
@@ -15,12 +16,15 @@ class CriarTokenSalaView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, conversa_id):
-        participante = ParticipanteConversa.objects.filter(
+        if is_platform_admin(request.user):
+            participante = Conversa.objects.filter(pk=conversa_id).first()
+        else:
+            participante = ParticipanteConversa.objects.filter(
             conversa_id=conversa_id,
             usuario=request.user,
             ativo=True,
             conversa__torcida__membros__usuario=request.user,
-        ).select_related("conversa").first()
+            ).select_related("conversa").first()
         if not participante:
             return Response(
                 {"detail": "Você não tem acesso a esta conversa."},
