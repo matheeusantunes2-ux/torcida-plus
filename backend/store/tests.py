@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -62,6 +63,49 @@ class StoreFlowTests(TestCase):
             "torcida": self.torcida.id, "nome": "Produto indevido", "preco": "10.00", "quantidade": 1,
         }, format="json")
         self.assertEqual(response.status_code, 403)
+
+
+    def test_pagamento_nao_expoe_checkout_de_pedido_de_outro_usuario(self):
+        pedido = Pedido.objects.create(
+            torcida=self.torcida, comprador=self.admin, total=Decimal("79.90"),
+            nome_destinatario="Admin", telefone="21999990000", cep="20000000",
+            endereco="Rua de Teste", numero="10", bairro="Centro",
+            cidade="Rio de Janeiro", uf="RJ",
+        )
+        response = self.client.post(
+            f"/api/loja/pedidos/{pedido.id}/pagar/",
+            {"metodo_pagamento": "pix"}, format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_pagamento_exige_metodo_valido(self):
+        pedido = Pedido.objects.create(
+            torcida=self.torcida, comprador=self.member, total=Decimal("79.90"),
+            nome_destinatario="Pessoa Teste", telefone="21999990000", cep="20000000",
+            endereco="Rua de Teste", numero="10", bairro="Centro",
+            cidade="Rio de Janeiro", uf="RJ",
+        )
+        response = self.client.post(
+            f"/api/loja/pedidos/{pedido.id}/pagar/",
+            {"metodo_pagamento": "dinheiro"}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch.dict("os.environ", {"TORCIDA_FRONTEND_URL": "https://torcida.example"})
+    def test_pagamento_informa_quando_gateway_nao_esta_configurado(self):
+        pedido = Pedido.objects.create(
+            torcida=self.torcida, comprador=self.member, total=Decimal("79.90"),
+            nome_destinatario="Pessoa Teste", telefone="21999990000", cep="20000000",
+            endereco="Rua de Teste", numero="10", bairro="Centro",
+            cidade="Rio de Janeiro", uf="RJ",
+        )
+        with patch.dict("os.environ", {"MERCADO_PAGO_ACCESS_TOKEN": ""}):
+            response = self.client.post(
+                f"/api/loja/pedidos/{pedido.id}/pagar/",
+                {"metodo_pagamento": "pix"}, format="json",
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("MERCADO_PAGO_ACCESS_TOKEN", response.data["detail"])
 
     def test_admin_pode_carregar_dez_produtos_demo(self):
         self.client.force_authenticate(self.admin)
