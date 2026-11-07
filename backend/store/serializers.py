@@ -6,7 +6,7 @@ class ProdutoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Produto
         fields = ["id","torcida","nome","descricao","categoria","preco","quantidade","imagem","imagem_url","ativo","criado_em","atualizado_em"]
-        read_only_fields = ["id","imagem_url","criado_em","atualizado_em"]
+        read_only_fields = ["id","torcida","imagem_url","criado_em","atualizado_em"]
     def get_imagem_url(self,obj):
         request=self.context.get("request")
         if not obj.imagem: return None
