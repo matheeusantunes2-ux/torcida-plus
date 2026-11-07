@@ -6,7 +6,7 @@ import os
 import time
 import urllib.error
 import urllib.request
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid5
 
 
 API_BASE = "https://api.mercadopago.com"
@@ -76,7 +76,7 @@ def create_preference(order, method, frontend_url):
         "metadata": {"torcida_plus_order_id": order.id},
     }
     payload = {key: value for key, value in payload.items() if value is not None}
-    return _request("/checkout/preferences", method="POST", payload=payload, idempotency_key=str(uuid4()))
+    return _request("/checkout/preferences", method="POST", payload=payload, idempotency_key=str(uuid5(NAMESPACE_URL, f"torcida-plus-order-{order.id}-{method}")))
 
 
 def get_payment(payment_id):
@@ -96,7 +96,10 @@ def validate_webhook_signature(signature, request_id, data_id):
     if not ts or not received:
         return False
     try:
-        if abs(int(time.time()) - int(ts) // 1000) > 300:
+        timestamp = int(ts)
+        if timestamp > 10**12:
+            timestamp //= 1000
+        if abs(int(time.time()) - timestamp) > 300:
             return False
     except ValueError:
         return False
