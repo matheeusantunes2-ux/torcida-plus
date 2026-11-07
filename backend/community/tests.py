@@ -103,3 +103,18 @@ class IsolamentoNotificacoesTests(APITestCase):
         self.notificacao.refresh_from_db()
         self.assertIsNotNone(self.notificacao.lida_em)
 
+class PlatformAdminCommunityTests(APITestCase):
+    def test_superuser_lista_publicacoes_de_outra_torcida(self):
+        admin_global = User.objects.create_superuser(
+            username="platform_admin_community", email="", password="Strong-Test-Password-2026!"
+        )
+        autor = User.objects.create_user(
+            username="autor_global", password="Strong-Test-Password-2026!"
+        )
+        torcida = Torcida.objects.create(nome="Comunidade Global FC", slug="comunidade-global-fc")
+        Membro.objects.create(usuario=autor, torcida=torcida, papel="admin")
+        Publicacao.objects.create(torcida=torcida, autor=autor, texto="Post para moderação")
+        self.client.force_authenticate(admin_global)
+        response = self.client.get("/api/comunidade/publicacoes/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
