@@ -51,3 +51,16 @@ class EventosApiTests(APITestCase):
         response = self.client.get("/api/eventos/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
+
+def test_membro_comum_nao_exclui_evento_publicado(self):
+        evento = Evento.objects.create(
+            torcida=self.torcida,
+            titulo="Evento protegido",
+            inicio_em=timezone.now() + timedelta(days=2),
+            status=Evento.Status.PUBLICADO,
+            criado_por=self.member,
+        )
+        self.client.force_authenticate(self.member)
+        response = self.client.delete(f"/api/eventos/{evento.pk}/")
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Evento.objects.filter(pk=evento.pk).exists())
