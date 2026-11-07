@@ -1,0 +1,71 @@
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from rest_framework.test import APIClient
+
+from store.models import ItemCarrinho, ItemPedido, Pedido, Produto
+from torcidas.models import Membro, Torcida
+
+
+class StoreFlowTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_user(username="admin-loja", password="test-password-123")
+        self.member = User.objects.create_user(username="membro-loja", password="test-password-123")
+        self.torcida = Torcida.objects.create(nome="Torcida Teste", slug="torcida-teste")
+        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel="admin")
+        Membro.objects.create(usuario=self.member, torcida=self.torcida, papel="membro")
+        self.client = APIClient()
+        self.client.force_authenticate(self.member)
+        self.produto = Produto.objects.create(
+            torcida=self.torcida, nome="Camisa teste", descricao="Produto para testes",
+            categoria="Vestuário", preco=Decimal("79.90"), quantidade=3,
+        )
+        self.endereco = {
+            "torcida": self.torcida.id, "nome_destinatario": "Pessoa Teste",
+            "telefone": "21999990000", "cep": "20000000", "endereco": "Rua de Teste",
+            "numero": "10", "bairro": "Centro", "cidade": "Rio de Janeiro", "uf": "RJ",
+        }
+
+    def test_carrinho_preserva_item_quando_quantidade_excede_estoque(self):
+        response = self.client.post("/api/loja/carrinho/", {"produto_id": self.produto.id, "quantidade": 2}, format="json")
+        self.assertEqual(response.status_code, 201)
+        excedente = self.client.post("/api/loja/carrinho/", {"produto_id": self.produto.id, "quantidade": 2}, format="json")
+        self.assertEqual(excedente.status_code, 400)
+        self.assertIn("mantido sem alterações", excedente.data["detail"])
+        item = ItemCarrinho.objects.get(usuario=self.member, produto=self.produto)
+        self.assertEqual(item.quantidade, 2)
+
+    def test_checkout_cria_pedido_e_baixa_estoque_atomicamente(self):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=2)
+        response = self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], Pedido.Status.AGUARDANDO)
+        self.assertEqual(Decimal(response.data["total"]), Decimal("159.80"))
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 1)
+        self.assertEqual(ItemPedido.objects.filter(pedido_id=response.data["id"]).count(), 1)
+        self.assertFalse(ItemCarrinho.objects.filter(usuario=self.member, produto=self.produto).exists())
+
+    def test_checkout_sem_estoque_nao_cria_pedido_nem_remove_carrinho(self):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=4)
+        response = self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(Pedido.objects.exists())
+        self.assertTrue(ItemCarrinho.objects.filter(usuario=self.member, produto=self.produto).exists())
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 3)
+
+    def test_membro_comum_nao_pode_cadastrar_produto(self):
+        response = self.client.post("/api/loja/produtos/", {
+            "torcida": self.torcida.id, "nome": "Produto indevido", "preco": "10.00", "quantidade": 1,
+        }, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_pode_carregar_dez_produtos_demo(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post("/api/loja/catalogo-demo/", {"torcida": self.torcida.id}, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Produto.objects.filter(torcida=self.torcida, ativo=True).count(), 11)
+        self.assertEqual(response.data["total"], 10)
