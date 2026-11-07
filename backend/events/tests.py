@@ -52,7 +52,7 @@ class EventosApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
 
-def test_membro_comum_nao_exclui_evento_publicado(self):
+    def test_membro_comum_nao_exclui_evento_publicado(self):
         evento = Evento.objects.create(
             torcida=self.torcida,
             titulo="Evento protegido",
