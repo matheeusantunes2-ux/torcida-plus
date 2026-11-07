@@ -1,4 +1,7 @@
 from decimal import Decimal
+import hashlib
+import hmac
+import time
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -6,6 +9,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from store.models import ItemCarrinho, ItemPedido, Pedido, Produto
+from store.payments import validate_webhook_signature
 from torcidas.models import Membro, Torcida
 
 
@@ -115,3 +119,29 @@ class StoreFlowTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Produto.objects.filter(torcida=self.torcida, ativo=True).count(), 11)
         self.assertEqual(response.data["total"], 10)
+
+
+
+class MercadoPagoWebhookSignatureTests(TestCase):
+    def _signature(self, secret, data_id, request_id, timestamp):
+        manifest = f"id:{data_id.lower()};request-id:{request_id};ts:{timestamp};"
+        digest = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+        return f"ts={timestamp},v1={digest}"
+
+    @patch.dict("os.environ", {"MERCADO_PAGO_WEBHOOK_SECRET": "segredo-de-teste"})
+    def test_assinatura_webhook_valida_e_aceita_timestamp_em_segundos(self):
+        ts = str(int(time.time()))
+        signature = self._signature("segredo-de-teste", "123456", "request-abc", ts)
+        self.assertTrue(validate_webhook_signature(signature, "request-abc", "123456"))
+
+    @patch.dict("os.environ", {"MERCADO_PAGO_WEBHOOK_SECRET": "segredo-de-teste"})
+    def test_assinatura_webhook_rejeita_hash_alterado(self):
+        ts = str(int(time.time()))
+        signature = self._signature("segredo-de-teste", "123456", "request-abc", ts)
+        self.assertFalse(validate_webhook_signature(signature, "request-abc", "654321"))
+
+    @patch.dict("os.environ", {"MERCADO_PAGO_WEBHOOK_SECRET": "segredo-de-teste"})
+    def test_assinatura_webhook_rejeita_timestamp_antigo(self):
+        ts = str(int(time.time()) - 600)
+        signature = self._signature("segredo-de-teste", "123456", "request-abc", ts)
+        self.assertFalse(validate_webhook_signature(signature, "request-abc", "123456"))
