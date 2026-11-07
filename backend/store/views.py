@@ -50,11 +50,15 @@ class CarrinhoView(APIView):
   try:q=int(r.data.get("quantidade",1))
   except (TypeError,ValueError):return Response({"detail":"Quantidade inválida."},status=400)
   if q<1 or q>100:return Response({"detail":"Quantidade deve ser de 1 a 100."},status=400)
+  if p.quantidade < 1 or q > p.quantidade:
+   return Response({"detail":"Estoque insuficiente."},status=400)
   item,created=ItemCarrinho.objects.get_or_create(usuario=r.user,produto=p,defaults={"quantidade":q})
   if not created:
-   item.quantidade+=q;item.save()
-  if item.quantidade>p.quantidade:
-   item.delete();return Response({"detail":"Estoque insuficiente."},status=400)
+   nova_quantidade=item.quantidade+q
+   if nova_quantidade>p.quantidade:
+    return Response({"detail":"Estoque insuficiente. Seu carrinho foi mantido sem alterações."},status=400)
+   item.quantidade=nova_quantidade
+   item.save(update_fields=["quantidade"])
   return Response(ItemCarrinhoSerializer(item,context={"request":r}).data,status=201 if created else 200)
  def delete(self,r):
   ItemCarrinho.objects.filter(pk=r.data.get("item_id"),usuario=r.user).delete();return Response(status=204)
