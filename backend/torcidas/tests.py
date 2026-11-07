@@ -126,3 +126,14 @@ class ConvitesTorcidasTests(APITestCase):
             f"/api/torcidas/{self.torcida.pk}/convites/", {}, format="json"
         )
         self.assertEqual(resposta.status_code, 404)
+
+class PlatformAdminTorcidasTests(APITestCase):
+    def test_superuser_lista_torcidas_sem_ser_membro(self):
+        admin_global = User.objects.create_superuser(
+            username="platform_admin_torcidas", email="", password="Strong-Test-Password-2026!"
+        )
+        torcida = Torcida.objects.create(nome="Admin Global FC", slug="admin-global-fc")
+        self.client.force_authenticate(admin_global)
+        response = self.client.get("/api/torcidas/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(any(item["id"] == torcida.pk for item in response.data))
