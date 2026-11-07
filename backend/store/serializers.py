@@ -29,5 +29,5 @@ class PedidoSerializer(serializers.ModelSerializer):
     itens=ItemPedidoSerializer(many=True,read_only=True)
     class Meta:
         model=Pedido
-        fields=["id","torcida","comprador","status","nome_destinatario","telefone","cep","endereco","numero","complemento","bairro","cidade","uf","observacoes","total","metodo_pagamento","status_pagamento","checkout_url","criado_em","itens"]
+        fields=["id","torcida","comprador","status","nome_destinatario","telefone","cep","endereco","numero","complemento","bairro","cidade","uf","observacoes","total","metodo_pagamento","status_pagamento","criado_em","itens"]
         read_only_fields=fields
