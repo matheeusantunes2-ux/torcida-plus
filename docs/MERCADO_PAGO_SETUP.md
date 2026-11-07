@@ -35,3 +35,8 @@ O status do pedido só muda para **pago** depois da confirmação consultada no 
 - Pix, cartão e boleto são apresentados conforme o meio selecionado e a disponibilidade habilitada na conta Mercado Pago.
 - O endereço de retorno precisa ser público; localhost não serve para homologação do Checkout Pro.
 - Não use credenciais de produção até concluir testes de ponta a ponta.
+
+
+## Limitação do Checkout Pro sobre a seleção de meios
+
+A escolha exibida no TORCIDA+ funciona como preferência e filtro de categorias, não como garantia de que o Checkout Pro mostrará exclusivamente um único meio. A documentação do Mercado Pago informa que o Checkout Pro disponibiliza os meios habilitados na conta e permite excluir tipos; o saldo em conta Mercado Pago não pode ser excluído. Portanto, o provedor pode exibir opções adicionais conforme a conta, país e configuração. Se a exigência comercial for aceitar estritamente apenas Pix OU apenas cartão OU apenas boleto, será necessário avaliar Checkout Transparente/Payment Brick ou outra integração de pagamento com seleção explícita e revisar seus requisitos de segurança e homologação.
