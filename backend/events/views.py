@@ -1,6 +1,7 @@
 from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from accounts.permissions import is_platform_admin
 from torcidas.models import Membro
@@ -37,3 +38,16 @@ class EventoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        evento = self.get_object()
+        if not is_platform_admin(request.user):
+            gerente = Membro.objects.filter(
+                torcida=evento.torcida,
+                usuario=request.user,
+                papel__in=[Membro.Papel.ADMIN, Membro.Papel.MODERADOR],
+            ).exists()
+            if not gerente:
+                raise PermissionDenied("Somente administradores e moderadores podem excluir eventos.")
+        evento.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
