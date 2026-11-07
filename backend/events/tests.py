@@ -17,7 +17,7 @@ class EventosApiTests(APITestCase):
             username="event_member", password="Strong-Test-Password-2026!"
         )
         self.torcida = Torcida.objects.create(nome="Eventos FC", slug="eventos-fc")
-        Membro.objects.create(usuario=self.member, torcida=self.torcida, papel="admin")
+        Membro.objects.create(usuario=self.member, torcida=self.torcida, papel="membro")
 
     def test_superuser_cria_evento_global_sem_ser_membro(self):
         self.client.force_authenticate(self.global_admin)
