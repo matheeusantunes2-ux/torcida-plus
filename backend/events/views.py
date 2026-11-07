@@ -17,11 +17,19 @@ class EventoViewSet(viewsets.ModelViewSet):
         if is_platform_admin(self.request.user):
             return queryset
         usuario = self.request.user
+        torcidas_gerenciadas = Membro.objects.filter(
+            usuario=usuario,
+            papel__in=[Membro.Papel.ADMIN, Membro.Papel.MODERADOR],
+        ).values("torcida_id")
+        torcidas_membro = Membro.objects.filter(
+            usuario=usuario,
+        ).values("torcida_id")
         return queryset.filter(
-            Q(torcida__membros__usuario=usuario,
-              torcida__membros__papel__in=[Membro.Papel.ADMIN, Membro.Papel.MODERADOR])
-            | Q(torcida__membros__usuario=usuario,
-                status__in=[Evento.Status.PUBLICADO, Evento.Status.ENCERRADO])
+            Q(torcida_id__in=torcidas_gerenciadas)
+            | Q(
+                torcida_id__in=torcidas_membro,
+                status__in=[Evento.Status.PUBLICADO, Evento.Status.ENCERRADO],
+            )
         ).distinct()
 
     def perform_create(self, serializer):
