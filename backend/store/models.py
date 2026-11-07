@@ -46,6 +46,11 @@ class Pedido(models.Model):
     uf = models.CharField(max_length=2)
     observacoes = models.CharField(max_length=500, blank=True)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    metodo_pagamento = models.CharField(max_length=20, blank=True, default="")
+    status_pagamento = models.CharField(max_length=20, default="nao_iniciado")
+    mercado_pago_preference_id = models.CharField(max_length=100, blank=True, default="")
+    mercado_pago_payment_id = models.CharField(max_length=100, blank=True, default="")
+    checkout_url = models.URLField(max_length=500, blank=True, default="")
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
