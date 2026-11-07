@@ -93,6 +93,8 @@ class StoreFlowTests(TestCase):
 
     @patch.dict("os.environ", {"TORCIDA_FRONTEND_URL": "https://torcida.example"})
     def test_pagamento_informa_quando_gateway_nao_esta_configurado(self):
+        self.member.email = "member@example.com"
+        self.member.save(update_fields=["email"])
         pedido = Pedido.objects.create(
             torcida=self.torcida, comprador=self.member, total=Decimal("79.90"),
             nome_destinatario="Pessoa Teste", telefone="21999990000", cep="20000000",
