@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from .models import Conversa, ParticipanteConversa, Mensagem, LeituraMensagem
+from accounts.permissions import is_platform_admin
 
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
@@ -83,6 +84,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def usuario_participa(self):
+        if is_platform_admin(self.user):
+            return Conversa.objects.filter(pk=self.conversa_id).exists()
         return ParticipanteConversa.objects.filter(
             conversa_id=self.conversa_id, usuario=self.user, ativo=True,
             conversa__torcida__membros__usuario=self.user,
