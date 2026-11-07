@@ -81,3 +81,33 @@ class ChatApiTests(APITestCase):
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Conversa.objects.count(), 0)
+
+class PlatformAdminChatAccessTests(APITestCase):
+    def setUp(self):
+        self.platform_admin = User.objects.create_superuser(
+            username="platform_chat_admin", email="", password="Strong-Test-Password-2026!"
+        )
+        self.member = User.objects.create_user(
+            username="platform_chat_member", password="Strong-Test-Password-2026!"
+        )
+        self.torcida = Torcida.objects.create(nome="Chat Global FC", slug="chat-global-fc")
+        Membro.objects.create(usuario=self.member, torcida=self.torcida, papel="admin")
+        self.conversa = Conversa.objects.create(
+            torcida=self.torcida, tipo=Conversa.Tipo.GRUPO,
+            nome="Grupo de teste", criada_por=self.member,
+        )
+        from .models import ParticipanteConversa
+        ParticipanteConversa.objects.create(conversa=self.conversa, usuario=self.member)
+        Mensagem.objects.create(
+            conversa=self.conversa, autor=self.member, conteudo="Mensagem para moderação"
+        )
+
+    def test_superuser_lista_conversas_e_consulta_mensagens(self):
+        self.client.force_authenticate(self.platform_admin)
+        lista = self.client.get("/api/chat/conversas/")
+        self.assertEqual(lista.status_code, 200)
+        self.assertEqual(len(lista.data), 1)
+        mensagens = self.client.get(f"/api/chat/conversas/{self.conversa.pk}/mensagens/")
+        self.assertEqual(mensagens.status_code, 200)
+        self.assertEqual(len(mensagens.data), 1)
+        self.assertEqual(mensagens.data[0]["conteudo"], "Mensagem para moderação")
