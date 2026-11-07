@@ -17,7 +17,7 @@ class Produto(models.Model):
 
     class Meta:
         ordering = ["nome"]
-        indexes = [models.Index(fields=["torcida", "ativo"])]
+        indexes = [models.Index(fields=["torcida", "ativo"], name="store_prod_torcida_idx")]
 
     def __str__(self):
         return self.nome
