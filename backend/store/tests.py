@@ -145,3 +145,22 @@ class MercadoPagoWebhookSignatureTests(TestCase):
         ts = str(int(time.time()) - 600)
         signature = self._signature("segredo-de-teste", "123456", "request-abc", ts)
         self.assertFalse(validate_webhook_signature(signature, "request-abc", "123456"))
+
+def test_superuser_global_pode_gerenciar_loja_sem_ser_membro(self):
+        global_admin = get_user_model().objects.create_superuser(
+            username="platform_admin_store", email="", password="Strong-Test-Password-2026!"
+        )
+        self.client.force_authenticate(global_admin)
+        response = self.client.get(
+            "/api/loja/produtos/", {"torcida": self.torcida.pk}
+        )
+        self.assertEqual(response.status_code, 200)
+        cadastro = self.client.post("/api/loja/produtos/", {
+            "torcida": self.torcida.pk,
+            "nome": "Produto administrador global",
+            "descricao": "Produto criado pelo administrador da plataforma",
+            "categoria": "Acessórios",
+            "preco": "19.90",
+            "quantidade": 5,
+        }, format="json")
+        self.assertEqual(cadastro.status_code, 200)
