@@ -1,4 +1,7 @@
 from decimal import Decimal
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.permissions import AllowAny
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import get_object_or_404
@@ -8,6 +11,7 @@ from rest_framework.views import APIView
 from torcidas.models import Membro
 from .models import Produto, ItemCarrinho, Pedido, ItemPedido
 from .serializers import ProdutoSerializer, ItemCarrinhoSerializer, PedidoSerializer
+from .payments import MercadoPagoError, create_preference, get_payment, validate_webhook_signature
 
 def membro(user,tid): return Membro.objects.filter(usuario=user,torcida_id=tid).first()
 def gerente(user,tid):
@@ -102,6 +106,73 @@ class PedidosView(APIView):
   if r.data.get("status") not in dict(Pedido.Status.choices):return Response({"detail":"Status inválido."},status=400)
   p.status=r.data["status"];p.save(update_fields=["status"]);return Response(PedidoSerializer(p).data)
 
+
+
+class PaymentPreferenceView(APIView):
+ permission_classes=[IsAuthenticated]
+ def post(self,r,pk):
+  pedido=get_object_or_404(Pedido,pk=pk)
+  if pedido.comprador_id != r.user.id:
+   return Response({"detail":"Este pedido não pertence à sua conta."},status=403)
+  if pedido.status == Pedido.Status.CANCELADO or pedido.status_pagamento == "approved":
+   return Response({"detail":"Este pedido não pode receber um novo pagamento."},status=409)
+  method=str(r.data.get("metodo_pagamento","")).lower()
+  if method not in ("pix","cartao","boleto"):
+   return Response({"detail":"Escolha Pix, cartão ou boleto."},status=400)
+  if pedido.checkout_url and pedido.metodo_pagamento == method and pedido.status_pagamento in ("pending","in_process","nao_iniciado"):
+   return Response({"checkout_url":pedido.checkout_url,"pedido":PedidoSerializer(pedido).data})
+  frontend_url=__import__("os").getenv("TORCIDA_FRONTEND_URL","").strip()
+  if not frontend_url:
+   return Response({"detail":"Configure TORCIDA_FRONTEND_URL no servidor para habilitar o retorno do checkout."},status=503)
+  try:
+   preference=create_preference(pedido,method,frontend_url)
+  except MercadoPagoError as exc:
+   return Response({"detail":str(exc)},status=503)
+  pedido.metodo_pagamento=method
+  pedido.status_pagamento="pending"
+  pedido.mercado_pago_preference_id=str(preference.get("id",""))
+  pedido.checkout_url=preference.get("init_point") or preference.get("sandbox_init_point") or ""
+  if not pedido.checkout_url:
+   return Response({"detail":"O Mercado Pago não retornou o endereço de pagamento."},status=502)
+  pedido.save(update_fields=["metodo_pagamento","status_pagamento","mercado_pago_preference_id","checkout_url"])
+  return Response({"checkout_url":pedido.checkout_url,"pedido":PedidoSerializer(pedido).data},status=201)
+
+
+class MercadoPagoWebhookView(APIView):
+ permission_classes=[AllowAny]
+ authentication_classes=[]
+ def post(self,r):
+  data_id=r.query_params.get("data.id") or (r.data.get("data") or {}).get("id")
+  if not validate_webhook_signature(r.headers.get("x-signature",""),r.headers.get("x-request-id",""),str(data_id or "")):
+   return Response({"detail":"Assinatura do webhook inválida."},status=401)
+  try:
+   payment=get_payment(str(data_id))
+  except MercadoPagoError:
+   return Response({"detail":"Não foi possível consultar o pagamento."},status=502)
+  external=str(payment.get("external_reference",""))
+  prefix="torcida-plus-order-"
+  if not external.startswith(prefix):
+   return Response({"detail":"Referência externa não reconhecida."},status=200)
+  try:
+   order_id=int(external[len(prefix):])
+   pedido=Pedido.objects.get(pk=order_id)
+  except (ValueError,Pedido.DoesNotExist):
+   return Response({"detail":"Pedido não encontrado."},status=200)
+  try:
+   paid_amount=Decimal(str(payment.get("transaction_amount","0"))).quantize(Decimal("0.01"))
+  except Exception:
+   return Response({"detail":"Valor de pagamento inválido."},status=400)
+  if paid_amount != pedido.total or payment.get("currency_id") != "BRL":
+   return Response({"detail":"Valor ou moeda do pagamento não corresponde ao pedido."},status=409)
+  status_mp=str(payment.get("status","")).lower()
+  with transaction.atomic():
+   pedido=Pedido.objects.select_for_update().get(pk=order_id)
+   pedido.mercado_pago_payment_id=str(payment.get("id",""))
+   pedido.status_pagamento=status_mp or pedido.status_pagamento
+   if status_mp == "approved" and pedido.status != Pedido.Status.CANCELADO:
+    pedido.status=Pedido.Status.PAGO
+   pedido.save(update_fields=["mercado_pago_payment_id","status_pagamento","status"])
+  return Response({"received":True},status=200)
 
 class CatalogoDemoView(APIView):
  permission_classes=[IsAuthenticated]
