@@ -34,5 +34,46 @@ return <main className="app-shell"><header className="app-header"><div className
 {tab==="Chat"&&<Chat tokens={tokens} onTokens={save}/>}
 {tab==="Eventos"&&<div className="quick-grid"><div className="content-card"><CalendarDays/><h3>Jogos e encontros</h3><p>Confira os próximos eventos da sua comunidade.</p><small className="coming">Módulo em desenvolvimento</small></div><div className="content-card"><Users/><h3>Caravanas</h3><p>Organize viagens e reúna sua torcida.</p><small className="coming">Módulo em desenvolvimento</small></div></div>}
 {tab==="Loja"&&<Store tokens={tokens} onTokens={save}/>}
-{tab==="Mais"&&<div className="quick-grid"><button><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></button><button><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button><button><Settings/><b>Configurações</b><small>Privacidade e segurança</small></button></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
+{tab==="Mais"&&<div className="quick-grid"><div className="content-card"><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></div><div className="content-card"><Settings/><b>Configurações</b><small>Privacidade e segurança</small></div><TorcidasPanel tokens={tokens} api={API}/></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
+}
+
+function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
+ const [items,setItems]=useState<any[]>([]);
+ const [nome,setNome]=useState("Tropa do Matheus");
+ const [slug,setSlug]=useState("tropa-do-matheus");
+ const [loading,setLoading]=useState(false);
+ const [error,setError]=useState("");
+ const [notice,setNotice]=useState("");
+ const [invite,setInvite]=useState("");
+ const [createdToken,setCreatedToken]=useState("");
+ const [inviteTarget,setInviteTarget]=useState<number|null>(null);
+ async function request(path:string,method="GET",body?:any){
+  const r=await fetch(api+path,{method,headers:{"Content-Type":"application/json",Authorization:"Bearer "+tokens.access},...(body?{body:JSON.stringify(body)}:{})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||Object.values(d).flat().join(" ")||"Não foi possível concluir.");
+  return d;
+ }
+ async function load(){setLoading(true);setError("");try{const d=await request("/api/torcidas/");setItems(Array.isArray(d)?d:(d.results||[]));}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar torcidas.");}finally{setLoading(false);}}
+ useEffect(()=>{load()},[tokens.access]);
+ async function create(e:FormEvent){e.preventDefault();setError("");setNotice("");try{const clean=slug.trim().toLowerCase().replace(/[^a-z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");const d=await request("/api/torcidas/","POST",{nome:nome.trim(),slug:clean,cor_principal:"#202020"});setItems(v=>[d,...v]);setNotice("Tropa criada! Você foi cadastrado como administrador.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar torcida.");}}
+ async function createInvite(id:number){setError("");setNotice("");try{const d=await request("/api/torcidas/"+id+"/convites/","POST",{validade_dias:7,limite_usos:20,papel:"membro"});setCreatedToken(d.token);setInviteTarget(id);setNotice("Convite criado. Compartilhe o código com os integrantes.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar convite.");}}
+ async function acceptInvite(e:FormEvent){e.preventDefault();setError("");setNotice("");try{await request("/api/torcidas/convites/aceitar/","POST",{token:invite.trim()});setInvite("");setNotice("Você entrou na torcida pelo convite.");await load();}catch(e){setError(e instanceof Error?e.message:"Convite inválido.");}}
+ return <div className="content-card" style={{gridColumn:"1 / -1"}}>
+  <h2><Users/> Minhas torcidas</h2>
+  <p>Crie sua comunidade, acompanhe os participantes e convide novos integrantes.</p>
+  <form onSubmit={create} style={{display:"grid",gap:10,marginTop:14}}>
+   <label>Nome da torcida</label><input className="dark-input" value={nome} onChange={e=>{setNome(e.target.value);setSlug(e.target.value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""));}} required maxLength={120}/>
+   <label>Identificador</label><input className="dark-input" value={slug} onChange={e=>setSlug(e.target.value)} required maxLength={140}/>
+   <button className="primary-btn" disabled={loading}>Criar torcida</button>
+  </form>
+  <form onSubmit={acceptInvite} style={{display:"grid",gap:10,marginTop:18}}>
+   <label>Entrar com código de convite</label><input className="dark-input" value={invite} onChange={e=>setInvite(e.target.value)} placeholder="Cole o código recebido"/>
+   <button className="outline-btn" disabled={!invite.trim()}>Aceitar convite</button>
+  </form>
+  <div style={{marginTop:18}}><h3>Comunidades que você participa</h3>{loading&&<p>Carregando...</p>}{!loading&&items.length===0&&<p>Nenhuma torcida vinculada a esta conta ainda.</p>}
+   {items.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #333"}}><div><b>{t.nome}</b><small style={{display:"block",opacity:.7}}>ID {t.id} · {t.slug}</small></div><button className="outline-btn" onClick={()=>createInvite(t.id)}>Gerar convite</button></div>)}
+  </div>
+  {createdToken&&<div className="notice" style={{marginTop:12,overflowWrap:"anywhere"}}><b>Código de convite</b><p>{createdToken}</p><button className="outline-btn" onClick={()=>navigator.clipboard?.writeText(createdToken)}>Copiar código</button></div>}
+  {error&&<div className="error" style={{marginTop:12}}>{error}</div>}{notice&&<div className="notice" style={{marginTop:12}}>{notice}</div>}
+ </div>;
 }
