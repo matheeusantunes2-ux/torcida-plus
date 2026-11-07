@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,9 +16,12 @@ class EventoViewSet(viewsets.ModelViewSet):
         queryset = Evento.objects.select_related("torcida", "criado_por")
         if is_platform_admin(self.request.user):
             return queryset
+        usuario = self.request.user
         return queryset.filter(
-            torcida__membros__usuario=self.request.user,
-            status__in=[Evento.Status.PUBLICADO, Evento.Status.ENCERRADO],
+            Q(torcida__membros__usuario=usuario,
+              torcida__membros__papel__in=[Membro.Papel.ADMIN, Membro.Papel.MODERADOR])
+            | Q(torcida__membros__usuario=usuario,
+                status__in=[Evento.Status.PUBLICADO, Evento.Status.ENCERRADO])
         ).distinct()
 
     def perform_create(self, serializer):
