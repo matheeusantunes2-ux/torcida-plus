@@ -35,5 +35,3 @@ class EventoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"valor": "O valor não pode ser negativo."})
         return attrs
 
-    def create(self, validated_data):
-        return Evento.objects.create(criado_por=self.context["request"].user, **validated_data)
