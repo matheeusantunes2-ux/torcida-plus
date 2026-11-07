@@ -8,15 +8,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from community.models import Notificacao
+from accounts.permissions import is_platform_admin
 
 from .models import Conversa, ParticipanteConversa, Mensagem
 from .serializers import ConversaSerializer, MensagemSerializer
 
 
 def conversas_do_usuario(usuario):
-    return Conversa.objects.filter(
+    queryset = Conversa.objects.select_related("torcida")
+    if is_platform_admin(usuario):
+        return queryset.all()
+    return queryset.filter(
         participantes__usuario=usuario, participantes__ativo=True
-    ).select_related("torcida").distinct()
+    ).distinct()
 
 
 def obter_conversa(usuario, conversa_id):
