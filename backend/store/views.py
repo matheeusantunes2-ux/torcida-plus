@@ -1,6 +1,4 @@
 from decimal import Decimal
-from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny
 from django.db import transaction
 from django.db.models import F
