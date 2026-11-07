@@ -71,8 +71,11 @@ export default function Store({ tokens, onTokens }: Props) {
     if (params.has("store_payment") && returnedOrderId) {
      const od = await api("/api/loja/pedidos/?torcida=" + selected.id);
      const listOrders: Order[] = Array.isArray(od) ? od : od.results || [];
-     setFinalOrder(listOrders.find(o => String(o.id) === returnedOrderId) || null);
+     const returnedOrder = listOrders.find(o => String(o.id) === returnedOrderId) || null;
+     setFinalOrder(returnedOrder);
+     if (returnedOrder?.metodo_pagamento) setPaymentMethod(returnedOrder.metodo_pagamento);
      setTab("Finalização");
+     window.history.replaceState({}, "", window.location.pathname);
     }
    } catch (e) { if (active) setError(e instanceof Error ? e.message : "Não foi possível localizar suas torcidas."); }
   })();
