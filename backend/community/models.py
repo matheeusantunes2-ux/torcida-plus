@@ -13,7 +13,13 @@ class Publicacao(models.Model):
         on_delete=models.CASCADE,
         related_name="publicacoes_torcida",
     )
+    class Status(models.TextChoices):
+        PENDENTE = "pendente", "Aguardando aprovação"
+        APROVADA = "aprovada", "Aprovada"
+        REJEITADA = "rejeitada", "Rejeitada"
+
     texto = models.TextField(max_length=5000)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDENTE, db_index=True)
     imagem = models.ImageField(
         upload_to="publicacoes/",
         blank=True,
