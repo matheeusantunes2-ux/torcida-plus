@@ -28,7 +28,7 @@ def env_list(name: str, default: str = "") -> list[str]:
 
 # O Render define RENDER no ambiente. Em produção, DEBUG fica desligado por padrão.
 IS_RENDER = bool(os.getenv("RENDER"))
-DEBUG = env_bool("DJANGO_DEBUG", not IS_RENDER)
+DEBUG = env_bool("DJANGO_DEBUG", False)
 if IS_RENDER and DEBUG:
     raise RuntimeError("DJANGO_DEBUG não pode ser true no ambiente de produção do Render.")
 
