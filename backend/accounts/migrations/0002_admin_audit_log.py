@@ -1,0 +1,32 @@
+# Generated for TORCIDA+ administrative audit history.
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("accounts", "0001_initial"),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="AdminAuditLog",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("acao", models.CharField(db_index=True, max_length=40)),
+                ("entidade", models.CharField(db_index=True, max_length=40)),
+                ("entidade_id", models.CharField(blank=True, max_length=64)),
+                ("descricao", models.CharField(max_length=255)),
+                ("detalhes", models.JSONField(blank=True, default=dict)),
+                ("criado_em", models.DateTimeField(auto_now_add=True, db_index=True)),
+                ("ator", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="acoes_administrativas_torcida", to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                "verbose_name": "Registro de auditoria administrativa",
+                "verbose_name_plural": "Registros de auditoria administrativa",
+                "ordering": ["-criado_em"],
+            },
+        ),
+    ]
