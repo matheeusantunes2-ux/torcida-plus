@@ -42,7 +42,6 @@ class PublicacaoSerializer(serializers.ModelSerializer):
             "imagem",
             "criada_em",
             "atualizada_em",
-            "status",
         ]
         read_only_fields = [
             "id",
@@ -52,6 +51,7 @@ class PublicacaoSerializer(serializers.ModelSerializer):
             "autor_foto",
             "criada_em",
             "atualizada_em",
+            "status",
         ]
 
     def get_autor_nome_exibicao(self, obj):
