@@ -27,5 +27,12 @@ urlpatterns = [
 # Em produção com armazenamento persistente/objeto, este caminho pode ser servido
 # por um CDN; no momento, o Django atende os arquivos em MEDIA_ROOT.
 urlpatterns += [
+    re_path(
+        r"^media/publicacoes/(?P<path>.+)$",
+        PublicacaoImageView.as_view(),
+        name="media-publicacao",
+    ),
+    # Fotos de perfil e imagens de produtos permanecem públicas conforme o
+    # comportamento atual; imagens de publicações usam a rota assinada acima.
     re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
 ]
