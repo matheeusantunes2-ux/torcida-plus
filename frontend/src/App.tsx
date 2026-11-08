@@ -34,7 +34,7 @@ return <main className="app-shell"><header className="app-header"><div className
 {tab==="Chat"&&<Chat tokens={tokens} onTokens={save}/>}
 {tab==="Eventos"&&<div className="quick-grid"><div className="content-card"><CalendarDays/><h3>Jogos e encontros</h3><p>Confira os próximos eventos da sua comunidade.</p><small className="coming">Módulo em desenvolvimento</small></div><div className="content-card"><Users/><h3>Caravanas</h3><p>Organize viagens e reúna sua torcida.</p><small className="coming">Módulo em desenvolvimento</small></div></div>}
 {tab==="Loja"&&<Store tokens={tokens} onTokens={save}/>}
-{tab==="Mais"&&<div className="quick-grid"><div className="content-card"><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></div><div className="content-card"><Settings/><b>Configurações</b><small>Privacidade e segurança</small></div><TorcidasPanel tokens={tokens} api={API}/></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
+{tab==="Mais"&&<div className="quick-grid"><div className="content-card"><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></div><div className="content-card"><Settings/><b>Configurações</b><small>Privacidade e segurança</small></div><TorcidasPanel tokens={tokens} api={API}/><ModeracaoPanel tokens={tokens} api={API}/></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
 }
 
 function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
@@ -92,4 +92,54 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
   {createdToken&&<div className="notice" style={{marginTop:12,overflowWrap:"anywhere"}}><b>Código de convite</b><p>{createdToken}</p><button className="outline-btn" onClick={()=>navigator.clipboard?.writeText(createdToken)}>Copiar código</button></div>}
   {error&&<div className="error" style={{marginTop:12}}>{error}</div>}{notice&&<div className="notice" style={{marginTop:12}}>{notice}</div>}
  </div>;
+}
+
+
+function ModeracaoPanel({tokens,api}:{tokens:Tokens;api:string}){
+ const [items,setItems]=useState<any[]>([]);
+ const [loading,setLoading]=useState(false);
+ const [busy,setBusy]=useState<number|null>(null);
+ const [error,setError]=useState("");
+ const [notice,setNotice]=useState("");
+ const [accessDenied,setAccessDenied]=useState(false);
+ async function request(path:string,method="GET"){
+  const r=await fetch(api+path,{method,headers:{Authorization:"Bearer "+tokens.access}});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){const message=d.detail||Object.values(d).flat().join(" ")||"Não foi possível concluir.";const e=new Error(message);(e as any).status=r.status;throw e;}
+  return d;
+ }
+ async function load(){
+  if(!tokens.access)return;
+  setLoading(true);setError("");setAccessDenied(false);
+  try{const d=await request("/api/comunidade/publicacoes/?status=pendente");setItems(Array.isArray(d)?d:(d.results||[]));}
+  catch(e){if((e as any)?.status===403){setAccessDenied(true);setItems([]);}else setError(e instanceof Error?e.message:"Falha ao carregar fila.");}
+  finally{setLoading(false);}
+ }
+ useEffect(()=>{load()},[tokens.access]);
+ async function decide(id:number,action:"aprovar"|"rejeitar"){
+  if(action==="rejeitar"&&!window.confirm("Rejeitar esta publicação?"))return;
+  setBusy(id);setError("");setNotice("");
+  try{await request("/api/comunidade/publicacoes/"+id+"/"+action+"/","POST");setItems(v=>v.filter(p=>p.id!==id));setNotice(action==="aprovar"?"Publicação aprovada e liberada no feed.":"Publicação rejeitada.");}
+  catch(e){setError(e instanceof Error?e.message:"Não foi possível moderar a publicação.");}
+  finally{setBusy(null);}
+ }
+ return <section className="content-card" style={{gridColumn:"1 / -1"}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+   <div><h2><ShieldCheck/> Central de moderação</h2><p>Revise as publicações antes que apareçam para os integrantes.</p></div>
+   <button className="outline-btn" onClick={load} disabled={loading}>{loading?"Atualizando...":"Atualizar fila"}</button>
+  </div>
+  {accessDenied&&<p>Área restrita ao administrador global do TORCIDA+.</p>}
+  {loading&&<p>Carregando publicações pendentes...</p>}
+  {!loading&&!accessDenied&&items.length===0&&<p>Nenhuma publicação aguardando aprovação.</p>}
+  {items.map(p=><article key={p.id} style={{borderTop:"1px solid #444",padding:"14px 0",marginTop:10}}>
+   <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><b>{p.autor_nome_exibicao||p.autor_username||"Integrante"} · {p.torcida_nome||("Torcida #"+p.torcida)}</b><small>{new Date(p.criada_em).toLocaleString("pt-BR")}</small></div>
+   <p style={{whiteSpace:"pre-wrap"}}>{p.texto}</p>
+   {p.imagem&&<img src={p.imagem} alt="Imagem enviada para aprovação" style={{maxWidth:"100%",maxHeight:280,objectFit:"contain",borderRadius:10}}/>}
+   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+    <button className="primary-btn" disabled={busy===p.id} onClick={()=>decide(p.id,"aprovar")}>{busy===p.id?"Aguarde...":"Aprovar publicação"}</button>
+    <button className="outline-btn" disabled={busy===p.id} onClick={()=>decide(p.id,"rejeitar")}>Rejeitar</button>
+   </div>
+  </article>)}
+  {error&&<p className="error">{error}</p>}{notice&&<p className="notice">{notice}</p>}
+ </section>;
 }
