@@ -36,6 +36,11 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def receive_json(self, content, **kwargs):
+        # Revalida em cada evento: remover alguém da torcida encerra o acesso
+        # mesmo que o WebSocket tenha sido aberto antes da remoção.
+        if not await self.usuario_participa():
+            await self.close(code=4403)
+            return
         if not isinstance(content, dict):
             await self.send_json({"tipo": "erro", "mensagem": "Evento inválido."})
             return
@@ -64,6 +69,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"tipo": "erro", "mensagem": "Mensagem inválida."})
             return
         mensagem = await self.salvar_mensagem(texto.strip())
+        if mensagem is None:
+            await self.close(code=4403)
+            return
         await self.channel_layer.group_send(
             self.group_name, {"type": "chat.message", "mensagem": mensagem}
         )
@@ -87,7 +95,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         if is_platform_admin(self.user):
             return Conversa.objects.filter(pk=self.conversa_id).exists()
         return ParticipanteConversa.objects.filter(
-            conversa_id=self.conversa_id, usuario=self.user, ativo=True,
+            conversa_id=self.conversa_id,
+            usuario=self.user,
+            ativo=True,
             conversa__torcida__membros__usuario=self.user,
         ).exists()
 
@@ -103,6 +113,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def marcar_lida(self, mensagem_id):
+        if not self.usuario_participa_sync():
+            return None
         try:
             mensagem = Mensagem.objects.get(pk=mensagem_id, conversa_id=self.conversa_id)
         except Mensagem.DoesNotExist:
@@ -114,8 +126,20 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
         return {"autor_id": mensagem.autor_id, "lida_em": leitura.lida_em.isoformat()}
 
+    def usuario_participa_sync(self):
+        if is_platform_admin(self.user):
+            return Conversa.objects.filter(pk=self.conversa_id).exists()
+        return ParticipanteConversa.objects.filter(
+            conversa_id=self.conversa_id,
+            usuario=self.user,
+            ativo=True,
+            conversa__torcida__membros__usuario=self.user,
+        ).exists()
+
     @database_sync_to_async
     def salvar_mensagem(self, texto):
+        if not self.usuario_participa_sync():
+            return None
         conversa = Conversa.objects.get(pk=self.conversa_id)
         mensagem = Mensagem.objects.create(conversa=conversa, autor=self.user, conteudo=texto)
         Conversa.objects.filter(pk=conversa.pk).update(atualizada_em=timezone.now())
