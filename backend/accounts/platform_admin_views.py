@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import is_platform_admin
+from accounts.models import AdminAuditLog
 from community.models import Publicacao
 from torcidas.models import Membro, Torcida
 
@@ -21,6 +22,27 @@ class PlatformAdminAPIView(APIView):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Acesso exclusivo ao administrador global do TORCIDA+.")
 
+
+
+
+def registrar_acao(request, acao, entidade, entidade_id, descricao, detalhes=None):
+    AdminAuditLog.objects.create(ator=request.user, acao=acao, entidade=entidade, entidade_id=str(entidade_id), descricao=descricao[:255], detalhes=detalhes or {})
+
+
+class PlatformAdminAuditView(PlatformAdminAPIView):
+    def get(self, request):
+        self.check_admin(request)
+        try:
+            page = max(1, int(request.query_params.get('page', '1')))
+        except (TypeError, ValueError):
+            page = 1
+        queryset = AdminAuditLog.objects.select_related('ator').all()
+        action = request.query_params.get('acao', '').strip()
+        if action:
+            queryset = queryset.filter(acao=action)
+        total = queryset.count()
+        rows = queryset[(page - 1) * 50:page * 50]
+        return Response({'count': total, 'page': page, 'results': [{'id': x.pk, 'ator': x.ator.username if x.ator else 'Conta removida', 'acao': x.acao, 'entidade': x.entidade, 'entidade_id': x.entidade_id, 'descricao': x.descricao, 'detalhes': x.detalhes, 'criado_em': x.criado_em} for x in rows]})
 
 class PlatformAdminOverviewView(PlatformAdminAPIView):
     def get(self, request):
@@ -123,6 +145,7 @@ class PlatformAdminUserStatusView(PlatformAdminAPIView):
             )
         target.is_active = request.data["is_active"]
         target.save(update_fields=["is_active"])
+        registrar_acao(request, "usuario_reativado" if target.is_active else "usuario_bloqueado", "usuario", target.pk, "Status de @" + target.username + " alterado.", {"username": target.username, "is_active": target.is_active})
         return Response({
             "id": target.pk,
             "username": target.username,
@@ -162,6 +185,7 @@ class PlatformAdminTorcidaDetailView(PlatformAdminAPIView):
         for key, value in data.items():
             setattr(torcida, key, value)
         torcida.save(update_fields=list(data.keys()))
+        registrar_acao(request, "torcida_editada", "torcida", torcida.pk, "Torcida " + torcida.nome + " editada.", {"campos": sorted(data.keys()), "slug": torcida.slug})
         return Response({"id": torcida.pk, "nome": torcida.nome, "slug": torcida.slug, "escudo_url": torcida.escudo_url, "cor_principal": torcida.cor_principal, "detail": "Torcida atualizada com sucesso."})
 
     def delete(self, request, torcida_id):
@@ -174,6 +198,7 @@ class PlatformAdminTorcidaDetailView(PlatformAdminAPIView):
         if membros or publicacoes:
             return Response({"detail": f"Exclusão bloqueada: esta torcida possui {membros} integrante(s) e {publicacoes} publicação(ões). Remova ou transfira esses vínculos antes."}, status=status.HTTP_409_CONFLICT)
         nome = torcida.nome
+        registrar_acao(request, "torcida_excluida", "torcida", torcida.pk, "Torcida " + nome + " excluída.", {"nome": nome})
         torcida.delete()
         return Response({"detail": f'Torcida "{nome}" excluída.'}, status=status.HTTP_200_OK)
 
@@ -198,8 +223,10 @@ class PlatformAdminTorcidaMemberView(PlatformAdminAPIView):
                 admins = Membro.objects.select_for_update().filter(torcida=torcida, papel=Membro.Papel.ADMIN).count()
                 if admins <= 1:
                     return Response({"detail": "A torcida precisa manter pelo menos um administrador responsável."}, status=status.HTTP_409_CONFLICT)
+            papel_anterior = membro.papel
             membro.papel = papel
             membro.save(update_fields=["papel"])
+        registrar_acao(request, "papel_alterado", "membro_torcida", membro.pk, "@" + membro.usuario.username + ": " + papel_anterior + " -> " + papel + ".", {"torcida_id": torcida.pk, "torcida": torcida.nome, "usuario": membro.usuario.username, "papel_anterior": papel_anterior, "papel_novo": papel})
         return Response({"id": membro.pk, "usuario": membro.usuario_id, "username": membro.usuario.username, "papel": membro.papel, "detail": "Responsabilidade atualizada com sucesso."})
 
     def delete(self, request, torcida_id, membro_id):
@@ -215,5 +242,8 @@ class PlatformAdminTorcidaMemberView(PlatformAdminAPIView):
                 admins = Membro.objects.select_for_update().filter(torcida=torcida, papel=Membro.Papel.ADMIN).count()
                 if admins <= 1:
                     return Response({"detail": "Não é possível remover o último administrador responsável pela torcida."}, status=status.HTTP_409_CONFLICT)
+            username = membro.usuario.username
+            papel_removido = membro.papel
             membro.delete()
+        registrar_acao(request, "membro_removido", "membro_torcida", membro_id, "@" + username + " removido de " + torcida.nome + ".", {"torcida_id": torcida.pk, "torcida": torcida.nome, "usuario": username, "papel": papel_removido})
         return Response({"detail": "Integrante removido da torcida."}, status=status.HTTP_200_OK)
