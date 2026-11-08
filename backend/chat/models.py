@@ -46,6 +46,28 @@ class Mensagem(models.Model):
         return f"Mensagem {self.pk} - conversa {self.conversa_id}"
 
 
+class AnexoMensagem(models.Model):
+    class Tipo(models.TextChoices):
+        IMAGEM = "imagem", "Imagem"
+        VIDEO = "video", "Vídeo"
+
+    mensagem = models.ForeignKey(Mensagem, on_delete=models.CASCADE, related_name="anexos")
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    cloudinary_public_id = models.CharField(max_length=255, unique=True)
+    cloudinary_resource_type = models.CharField(max_length=10, choices=[("image", "Imagem"), ("video", "Vídeo")])
+    formato = models.CharField(max_length=20)
+    nome_original = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    tamanho = models.PositiveBigIntegerField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"Anexo {self.pk} - mensagem {self.mensagem_id}"
+
+
 class LeituraMensagem(models.Model):
     mensagem = models.ForeignKey(Mensagem, on_delete=models.CASCADE, related_name="leituras")
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="leituras_chat")
