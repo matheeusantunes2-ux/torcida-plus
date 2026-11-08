@@ -47,6 +47,13 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
  const [invite,setInvite]=useState("");
  const [createdToken,setCreatedToken]=useState("");
  const [inviteTarget,setInviteTarget]=useState<number|null>(null);
+ const [selectedTorcida,setSelectedTorcida]=useState<number|null>(null);
+ const [members,setMembers]=useState<any[]>([]);
+ const [membersLoading,setMembersLoading]=useState(false);
+ const [memberBusy,setMemberBusy]=useState<number|null>(null);
+ async function showMembers(id:number){setSelectedTorcida(id);setMembersLoading(true);setError("");try{const d=await request("/api/torcidas/"+id+"/membros/");setMembers(Array.isArray(d)?d:(d.results||[]));}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar membros.");}finally{setMembersLoading(false);}}
+ async function changeMember(id:number,papel:string){setMemberBusy(id);setError("");try{const d=await request("/api/torcidas/"+selectedTorcida+"/membros/"+id+"/","PATCH",{papel});setMembers(v=>v.map(m=>m.id===id?d:m));setNotice("Permissão do integrante atualizada.");}catch(e){setError(e instanceof Error?e.message:"Falha ao atualizar integrante.");}finally{setMemberBusy(null);}}
+ async function removeMember(id:number){if(!window.confirm("Deseja realmente remover este integrante da torcida?"))return;setMemberBusy(id);setError("");try{await request("/api/torcidas/"+selectedTorcida+"/membros/"+id+"/","DELETE");setMembers(v=>v.filter(m=>m.id!==id));setNotice("Integrante removido.");}catch(e){setError(e instanceof Error?e.message:"Falha ao remover integrante.");}finally{setMemberBusy(null);}}
  async function request(path:string,method="GET",body?:any){
   const r=await fetch(api+path,{method,headers:{"Content-Type":"application/json",Authorization:"Bearer "+tokens.access},...(body?{body:JSON.stringify(body)}:{})});
   const d=await r.json().catch(()=>({}));
@@ -71,8 +78,17 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
    <button className="outline-btn" disabled={!invite.trim()}>Aceitar convite</button>
   </form>
   <div style={{marginTop:18}}><h3>Comunidades que você participa</h3>{loading&&<p>Carregando...</p>}{!loading&&items.length===0&&<p>Nenhuma torcida vinculada a esta conta ainda.</p>}
-   {items.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #333"}}><div><b>{t.nome}</b><small style={{display:"block",opacity:.7}}>ID {t.id} · {t.slug}</small></div><button className="outline-btn" onClick={()=>createInvite(t.id)}>Gerar convite</button></div>)}
+   {items.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #333"}}><div><b>{t.nome}</b><small style={{display:"block",opacity:.7}}>ID {t.id} · {t.slug}</small></div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="outline-btn" onClick={()=>showMembers(t.id)}>Ver membros</button><button className="outline-btn" onClick={()=>createInvite(t.id)}>Gerar convite</button></div></div>)}
   </div>
+  {selectedTorcida!==null&&<section style={{marginTop:18,padding:14,border:"1px solid #444",borderRadius:12}}>
+   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}><h3>Integrantes da torcida #{selectedTorcida}</h3><button className="outline-btn" onClick={()=>setSelectedTorcida(null)}>Fechar</button></div>
+   {membersLoading&&<p>Carregando integrantes...</p>}
+   {!membersLoading&&members.length===0&&<p>Nenhum integrante encontrado.</p>}
+   {members.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #333",flexWrap:"wrap"}}>
+    <div><b>@{m.username}</b><small style={{display:"block",opacity:.7}}>{m.papel==="admin"?"Administrador":m.papel==="moderador"?"Moderador":"Membro"}</small></div>
+    {m.papel!=="admin"&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><button className="outline-btn" disabled={memberBusy===m.id} onClick={()=>changeMember(m.id,m.papel==="moderador"?"membro":"moderador")}>{m.papel==="moderador"?"Rebaixar":"Promover"}</button><button className="outline-btn" disabled={memberBusy===m.id} onClick={()=>removeMember(m.id)}>Remover</button></div>}
+   </div>)}
+  </section>}
   {createdToken&&<div className="notice" style={{marginTop:12,overflowWrap:"anywhere"}}><b>Código de convite</b><p>{createdToken}</p><button className="outline-btn" onClick={()=>navigator.clipboard?.writeText(createdToken)}>Copiar código</button></div>}
   {error&&<div className="error" style={{marginTop:12}}>{error}</div>}{notice&&<div className="notice" style={{marginTop:12}}>{notice}</div>}
  </div>;
