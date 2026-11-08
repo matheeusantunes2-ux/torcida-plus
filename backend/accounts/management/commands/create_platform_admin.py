@@ -1,14 +1,15 @@
-"""Cria o primeiro administrador geral de forma interativa ou via job privado.
+"""Cria o primeiro administrador geral de forma interativa ou via ambiente protegido.
 
 Modo interativo:
     python manage.py create_platform_admin
 
-Modo one-off job do Render:
-    python manage.py create_platform_admin --from-env
+Modo automatizado:
+    python manage.py create_platform_admin --from-env --if-missing
 
 No modo automatizado, os segredos são lidos apenas do ambiente do serviço.
 Nunca passe a senha na linha de comando, em workflow inputs ou no repositório.
-O comando não promove contas existentes: se o username já existir, aborta.
+A opção --if-missing torna a execução segura no comando de inicialização:
+se o bootstrap estiver desligado ou a conta já existir, o servidor continua.
 """
 import os
 from getpass import getpass
@@ -28,27 +29,48 @@ class Command(BaseCommand):
         parser.add_argument(
             "--from-env",
             action="store_true",
-            help="Lê credenciais de variáveis protegidas do ambiente (uso em job privado).",
+            help="Lê credenciais de variáveis protegidas do ambiente.",
+        )
+        parser.add_argument(
+            "--if-missing",
+            action="store_true",
+            help="Não falha se o bootstrap estiver desligado ou a conta já existir.",
         )
 
     def handle(self, *args, **options):
         User = get_user_model()
+        safe_mode = options["if_missing"]
+
+        if safe_mode and not options["from_env"]:
+            raise CommandError("--if-missing só pode ser usado junto com --from-env.")
 
         if options["from_env"]:
             if os.environ.get("TORCIDA_ADMIN_BOOTSTRAP_ENABLED") != "1":
+                if safe_mode:
+                    self.stdout.write("Bootstrap desativado; nenhuma alteração feita.")
+                    return
                 raise CommandError("Bootstrap não habilitado no ambiente do serviço.")
             username = os.environ.get("TORCIDA_ADMIN_BOOTSTRAP_USERNAME", "").strip()
             password = os.environ.get("TORCIDA_ADMIN_BOOTSTRAP_PASSWORD", "")
             if not username or not password:
+                if safe_mode:
+                    self.stderr.write("Bootstrap habilitado, mas faltam variáveis; nenhuma alteração feita.")
+                    return
                 raise CommandError("Faltam as credenciais protegidas do bootstrap.")
         else:
             username = input("Nome de usuário [admin-loja]: ").strip() or "admin-loja"
             password = None
 
         if not username or len(username) > 150:
+            if safe_mode:
+                self.stderr.write("Nome de usuário inválido; nenhuma alteração feita.")
+                return
             raise CommandError("Nome de usuário inválido.")
 
         if User.objects.filter(username__iexact=username).exists():
+            if safe_mode:
+                self.stdout.write("A conta indicada já existe; nenhuma alteração foi feita.")
+                return
             raise CommandError(
                 f"O usuário '{username}' já existe. Nenhuma alteração foi feita. "
                 "Use outro nome ou recupere o acesso por um procedimento verificado."
@@ -64,6 +86,9 @@ class Command(BaseCommand):
         try:
             validate_password(password, user=candidate)
         except Exception as exc:
+            if safe_mode:
+                self.stderr.write("A senha configurada não passou na validação; nenhuma conta foi criada.")
+                return
             raise CommandError(f"Senha não aceita: {exc}") from exc
 
         with transaction.atomic():
@@ -78,6 +103,5 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(self.style.SUCCESS(
-            f"Administrador geral '{user.username}' criado com sucesso. "
-            "Nenhuma senha foi exibida."
+            "Administrador geral criado com sucesso. Nenhuma senha foi exibida."
         ))
