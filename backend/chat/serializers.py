@@ -1,20 +1,34 @@
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from rest_framework import serializers
 
 from torcidas.models import Membro
-from .models import Conversa, ParticipanteConversa, Mensagem
+from .models import AnexoMensagem, Conversa, ParticipanteConversa, Mensagem
 
 User = get_user_model()
+
+
+class AnexoMensagemSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AnexoMensagem
+        fields = ["id", "tipo", "nome_original", "content_type", "tamanho", "url"]
+        read_only_fields = fields
+
+    def get_url(self, obj):
+        return reverse("chat-anexo-url", kwargs={"anexo_id": obj.pk})
 
 
 class MensagemSerializer(serializers.ModelSerializer):
     autor_id = serializers.IntegerField(source="autor.id", read_only=True)
     autor_username = serializers.CharField(source="autor.username", read_only=True)
+    anexos = AnexoMensagemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Mensagem
-        fields = ["id", "autor_id", "autor_username", "conteudo", "criada_em", "editada_em"]
-        read_only_fields = ["id", "autor_id", "autor_username", "criada_em", "editada_em"]
+        fields = ["id", "autor_id", "autor_username", "conteudo", "criada_em", "editada_em", "anexos"]
+        read_only_fields = ["id", "autor_id", "autor_username", "criada_em", "editada_em", "anexos"]
 
     def validate_conteudo(self, value):
         value = value.strip()
@@ -70,9 +84,7 @@ class ConversaSerializer(serializers.ModelSerializer):
             except (TypeError, ValueError):
                 raise serializers.ValidationError({"participantes": "IDs inválidos."})
         ids.add(request.user.pk)
-        membros = set(Membro.objects.filter(
-            torcida=validated_data["torcida"], usuario_id__in=ids
-        ).values_list("usuario_id", flat=True))
+        membros = set(Membro.objects.filter(torcida=validated_data["torcida"], usuario_id__in=ids).values_list("usuario_id", flat=True))
         if membros != ids:
             raise serializers.ValidationError({"participantes": "Todos os participantes devem pertencer à torcida."})
         if validated_data["tipo"] == Conversa.Tipo.PRIVADA and len(ids) != 2:
@@ -82,7 +94,5 @@ class ConversaSerializer(serializers.ModelSerializer):
         from django.db import transaction
         with transaction.atomic():
             conversa = Conversa.objects.create(criada_por=request.user, **validated_data)
-            ParticipanteConversa.objects.bulk_create([
-                ParticipanteConversa(conversa=conversa, usuario_id=user_id) for user_id in ids
-            ])
+            ParticipanteConversa.objects.bulk_create([ParticipanteConversa(conversa=conversa, usuario_id=user_id) for user_id in ids])
         return conversa
