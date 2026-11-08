@@ -55,7 +55,7 @@ export default function Chat({tokens,onTokens}:{tokens:Tokens;onTokens:(v:Tokens
  },[request]);
  useEffect(()=>{let live=true;setLoading(true);Promise.all([request("/api/chat/conversas/"),request("/api/torcidas/")]).then(([c,t])=>{if(!live)return;setConversations(Array.isArray(c)?c:(c.results||[]));setTeams(Array.isArray(t)?t:(t.results||[]))}).catch(e=>{if(live)setError(e.message)}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[request]);
  useEffect(()=>{if(!teamId){setMembers([]);return}let live=true;request("/api/torcidas/"+teamId+"/membros/").then(d=>{if(live)setMembers(d)}).catch(e=>{if(live)setError(e.message)});return()=>{live=false}},[teamId,request]);
- useEffect(()=>{if(!selected)return;let live=true;setMessages([]);setError("");request("/api/chat/conversas/"+selected+"/mensagens/").then(d=>{if(live)setMessages(Array.isArray(d)?d:(d.results||[]))}).catch(e=>{if(live)setError(e.message)});
+ useEffect(()=>{if(!selected)return;let live=true;setMessages([]);setReadMessages([]);setTypingUser(false);setError("");request("/api/chat/conversas/"+selected+"/mensagens/").then(d=>{if(live)setMessages(Array.isArray(d)?d:(d.results||[]))}).catch(e=>{if(live)setError(e.message)});
   let ws:WebSocket|null=null;
   request("/api/chat/ws-ticket/",{method:"POST"}).then(d=>{
    if(!live)return;const base=API||window.location.origin;const url=new URL(base);url.protocol=url.protocol==="https:"?"wss:":"ws:";url.pathname="/ws/chat/"+selected+"/";url.search="ticket="+encodeURIComponent(d.ticket);
