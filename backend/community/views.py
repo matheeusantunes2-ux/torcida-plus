@@ -1,4 +1,7 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
 from torcidas.models import Membro
@@ -18,7 +21,8 @@ class PublicacaoViewSet(viewsets.ModelViewSet):
         queryset = Publicacao.objects.all()
         if not is_platform_admin(usuario):
             queryset = queryset.filter(
-                torcida__membros__usuario=usuario
+                torcida__membros__usuario=usuario,
+                status=Publicacao.Status.APROVADA,
             )
         queryset = queryset.select_related("autor", "torcida").distinct()
 
@@ -35,7 +39,28 @@ class PublicacaoViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(autor=self.request.user)
+        serializer.save(autor=self.request.user, status=Publicacao.Status.PENDENTE)
+
+    def _exigir_admin_global(self):
+        if not is_platform_admin(self.request.user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Somente o administrador da plataforma pode aprovar publicações.")
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def aprovar(self, request, pk=None):
+        self._exigir_admin_global()
+        publicacao = self.get_object()
+        publicacao.status = Publicacao.Status.APROVADA
+        publicacao.save(update_fields=["status", "atualizada_em"])
+        return Response(self.get_serializer(publicacao).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def rejeitar(self, request, pk=None):
+        self._exigir_admin_global()
+        publicacao = self.get_object()
+        publicacao.status = Publicacao.Status.REJEITADA
+        publicacao.save(update_fields=["status", "atualizada_em"])
+        return Response(self.get_serializer(publicacao).data)
 
 
 from django.db import IntegrityError, transaction
@@ -61,7 +86,8 @@ class ComentarioViewSet(viewsets.ModelViewSet):
     def get_publicacao(self):
         return get_object_or_404(
             Publicacao.objects.filter(
-                torcida__membros__usuario=self.request.user
+                torcida__membros__usuario=self.request.user,
+                status=Publicacao.Status.APROVADA,
             ).distinct(),
             pk=self.kwargs["publicacao_id"],
         )
@@ -85,7 +111,8 @@ class CurtidaView(APIView):
     def obter_publicacao(self, request, publicacao_id):
         return get_object_or_404(
             Publicacao.objects.filter(
-                torcida__membros__usuario=request.user
+                torcida__membros__usuario=request.user,
+                status=Publicacao.Status.APROVADA,
             ).distinct(),
             pk=publicacao_id,
         )
