@@ -25,6 +25,7 @@ class IsolamentoPublicacoesTests(APITestCase):
             torcida=self.torcida,
             autor=self.autor,
             texto="Publicação privada da torcida",
+            status=Publicacao.Status.APROVADA,
         )
 
     def test_usuario_de_fora_nao_lista_publicacao(self):
@@ -118,3 +119,37 @@ class PlatformAdminCommunityTests(APITestCase):
         response = self.client.get("/api/comunidade/publicacoes/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
+
+
+class AprovacaoObrigatoriaPublicacoesTests(APITestCase):
+    def setUp(self):
+        self.autor = User.objects.create_user(username="autor_pendente", password="Senha-Forte-2026!")
+        self.admin_global = User.objects.create_superuser(username="admin_aprovador", email="", password="Senha-Forte-2026!")
+        self.torcida = Torcida.objects.create(nome="Torcida Moderada", slug="torcida-moderada")
+        Membro.objects.create(usuario=self.autor, torcida=self.torcida, papel="admin")
+        self.client.force_authenticate(user=self.autor)
+
+    def test_nova_publicacao_fica_pendente_e_nao_aparece_no_feed(self):
+        response = self.client.post("/api/comunidade/publicacoes/", {"torcida": self.torcida.pk, "texto": "Aguardando análise"}, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], Publicacao.Status.PENDENTE)
+        feed = self.client.get("/api/comunidade/publicacoes/")
+        self.assertEqual(len(feed.data), 0)
+
+    def test_apenas_admin_global_aprova_publicacao(self):
+        post = Publicacao.objects.create(torcida=self.torcida, autor=self.autor, texto="Para aprovar")
+        response = self.client.post(f"/api/comunidade/publicacoes/{post.pk}/aprovar/")
+        self.assertEqual(response.status_code, 403)
+        self.client.force_authenticate(user=self.admin_global)
+        response = self.client.post(f"/api/comunidade/publicacoes/{post.pk}/aprovar/")
+        self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.status, Publicacao.Status.APROVADA)
+
+    def test_admin_global_pode_rejeitar_publicacao(self):
+        post = Publicacao.objects.create(torcida=self.torcida, autor=self.autor, texto="Para rejeitar")
+        self.client.force_authenticate(user=self.admin_global)
+        response = self.client.post(f"/api/comunidade/publicacoes/{post.pk}/rejeitar/")
+        self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.status, Publicacao.Status.REJEITADA)
