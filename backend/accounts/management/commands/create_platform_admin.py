@@ -1,12 +1,16 @@
-"""Cria o primeiro administrador geral de forma interativa e segura.
+"""Cria o primeiro administrador geral de forma interativa ou via job privado.
 
-Execute no ambiente da aplicação:
+Modo interativo:
     python manage.py create_platform_admin
 
-A senha é solicitada no terminal, nunca passada por argumento ou gravada no
-repositório. O comando não promove contas existentes: se o username já existir,
-a operação é interrompida para evitar tomada acidental de conta.
+Modo one-off job do Render:
+    python manage.py create_platform_admin --from-env
+
+No modo automatizado, os segredos são lidos apenas do ambiente do serviço.
+Nunca passe a senha na linha de comando, em workflow inputs ou no repositório.
+O comando não promove contas existentes: se o username já existir, aborta.
 """
+import os
 from getpass import getpass
 
 from django.contrib.auth import get_user_model
@@ -20,9 +24,26 @@ from accounts.models import Perfil
 class Command(BaseCommand):
     help = "Cria uma conta de administrador geral do TORCIDA+."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--from-env",
+            action="store_true",
+            help="Lê credenciais de variáveis protegidas do ambiente (uso em job privado).",
+        )
+
     def handle(self, *args, **options):
         User = get_user_model()
-        username = input("Nome de usuário [admin-loja]: ").strip() or "admin-loja"
+
+        if options["from_env"]:
+            if os.environ.get("TORCIDA_ADMIN_BOOTSTRAP_ENABLED") != "1":
+                raise CommandError("Bootstrap não habilitado no ambiente do serviço.")
+            username = os.environ.get("TORCIDA_ADMIN_BOOTSTRAP_USERNAME", "").strip()
+            password = os.environ.get("TORCIDA_ADMIN_BOOTSTRAP_PASSWORD", "")
+            if not username or not password:
+                raise CommandError("Faltam as credenciais protegidas do bootstrap.")
+        else:
+            username = input("Nome de usuário [admin-loja]: ").strip() or "admin-loja"
+            password = None
 
         if not username or len(username) > 150:
             raise CommandError("Nome de usuário inválido.")
@@ -33,10 +54,11 @@ class Command(BaseCommand):
                 "Use outro nome ou recupere o acesso por um procedimento verificado."
             )
 
-        password = getpass("Crie uma senha forte: ")
-        confirmation = getpass("Confirme a senha: ")
-        if not password or password != confirmation:
-            raise CommandError("As senhas estão vazias ou não conferem.")
+        if password is None:
+            password = getpass("Crie uma senha forte: ")
+            confirmation = getpass("Confirme a senha: ")
+            if not password or password != confirmation:
+                raise CommandError("As senhas estão vazias ou não conferem.")
 
         candidate = User(username=username, email="")
         try:
@@ -57,5 +79,5 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"Administrador geral '{user.username}' criado com sucesso. "
-            "Guarde a senha em um gerenciador seguro."
+            "Nenhuma senha foi exibida."
         ))
