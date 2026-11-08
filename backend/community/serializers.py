@@ -15,11 +15,15 @@ class SignedPublicationImageField(serializers.ImageField):
         self._current_publicacao = instance
         return super().get_attribute(instance)
 
+    def get_attribute(self, instance):
+        self._current_publicacao = instance
+        return super().get_attribute(instance)
+
     def to_representation(self, value):
         if not value:
             return None
         request = self.context.get("request")
-        publicacao = self.parent.instance
+        publicacao = getattr(self, "_current_publicacao", None)
         if not request or not request.user.is_authenticated or not publicacao:
             return None
         token = signing.dumps(
