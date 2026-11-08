@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
 from torcidas.models import Membro, Torcida
-from .models import Publicacao
+from .models import Publicacao, Notificacao
 
 User = get_user_model()
 
@@ -133,6 +133,7 @@ class AprovacaoObrigatoriaPublicacoesTests(APITestCase):
         response = self.client.post("/api/comunidade/publicacoes/", {"torcida": self.torcida.pk, "texto": "Aguardando análise"}, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["status"], Publicacao.Status.PENDENTE)
+        self.assertTrue(self.admin_global.notificacoes_torcida.filter(tipo=Notificacao.Tipo.PUBLICACAO_PENDENTE).exists())
         feed = self.client.get("/api/comunidade/publicacoes/")
         self.assertEqual(len(feed.data), 0)
 
