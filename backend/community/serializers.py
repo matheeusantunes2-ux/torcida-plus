@@ -30,7 +30,8 @@ class SignedPublicationImageField(serializers.ImageField):
             },
             salt="torcida-publicacao-media-v1",
         )
-        path = reverse("media-publicacao", kwargs={"path": value.name})
+        caminho_relativo = value.name.removeprefix("publicacoes/")
+        path = reverse("media-publicacao", kwargs={"path": caminho_relativo})
         url = f"{path}?{urlencode({'token': token})}"
         return request.build_absolute_uri(url)
 
