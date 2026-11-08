@@ -95,6 +95,7 @@ class ComentarioViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Comentario.objects.filter(
             publicacao__torcida__membros__usuario=self.request.user,
+            publicacao__status=Publicacao.Status.APROVADA,
             publicacao_id=self.kwargs["publicacao_id"],
         ).select_related("autor", "publicacao").distinct()
 
