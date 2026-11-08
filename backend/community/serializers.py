@@ -36,6 +36,8 @@ class SignedPublicationImageField(serializers.ImageField):
 
 
 class PublicacaoSerializer(serializers.ModelSerializer):
+    imagem = SignedPublicationImageField(required=False, allow_null=True)
+
     autor_id = serializers.IntegerField(
         source="autor.id",
         read_only=True,
