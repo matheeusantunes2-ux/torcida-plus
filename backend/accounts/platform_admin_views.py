@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -175,3 +176,44 @@ class PlatformAdminTorcidaDetailView(PlatformAdminAPIView):
         nome = torcida.nome
         torcida.delete()
         return Response({"detail": f'Torcida "{nome}" excluída.'}, status=status.HTTP_200_OK)
+
+
+class PlatformAdminTorcidaMemberView(PlatformAdminAPIView):
+    """Gestão global de responsáveis e integrantes de uma torcida."""
+
+    def patch(self, request, torcida_id, membro_id):
+        self.check_admin(request)
+        torcida = Torcida.objects.filter(pk=torcida_id).first()
+        if torcida is None:
+            return Response({"detail": "Torcida não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        with transaction.atomic():
+            membro = Membro.objects.select_for_update().select_related("usuario").filter(pk=membro_id, torcida=torcida).first()
+            if membro is None:
+                return Response({"detail": "Integrante não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+            papel = request.data.get("papel")
+            validos = [Membro.Papel.ADMIN, Membro.Papel.MODERADOR, Membro.Papel.MEMBRO]
+            if papel not in validos:
+                return Response({"detail": "Papel inválido. Use admin, moderador ou membro."}, status=status.HTTP_400_BAD_REQUEST)
+            if membro.papel == Membro.Papel.ADMIN and papel != Membro.Papel.ADMIN:
+                admins = Membro.objects.select_for_update().filter(torcida=torcida, papel=Membro.Papel.ADMIN).count()
+                if admins <= 1:
+                    return Response({"detail": "A torcida precisa manter pelo menos um administrador responsável."}, status=status.HTTP_409_CONFLICT)
+            membro.papel = papel
+            membro.save(update_fields=["papel"])
+        return Response({"id": membro.pk, "usuario": membro.usuario_id, "username": membro.usuario.username, "papel": membro.papel, "detail": "Responsabilidade atualizada com sucesso."})
+
+    def delete(self, request, torcida_id, membro_id):
+        self.check_admin(request)
+        torcida = Torcida.objects.filter(pk=torcida_id).first()
+        if torcida is None:
+            return Response({"detail": "Torcida não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        with transaction.atomic():
+            membro = Membro.objects.select_for_update().filter(pk=membro_id, torcida=torcida).first()
+            if membro is None:
+                return Response({"detail": "Integrante não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+            if membro.papel == Membro.Papel.ADMIN:
+                admins = Membro.objects.select_for_update().filter(torcida=torcida, papel=Membro.Papel.ADMIN).count()
+                if admins <= 1:
+                    return Response({"detail": "Não é possível remover o último administrador responsável pela torcida."}, status=status.HTTP_409_CONFLICT)
+            membro.delete()
+        return Response({"detail": "Integrante removido da torcida."}, status=status.HTTP_200_OK)
