@@ -142,6 +142,10 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Limites do upload de anexos do chat (arquivos maiores são encaminhados em streaming temporário).
+DATA_UPLOAD_MAX_MEMORY_SIZE = 105 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:19006,http://localhost:8081,http://127.0.0.1:8081",
