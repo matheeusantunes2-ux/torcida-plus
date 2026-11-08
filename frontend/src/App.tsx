@@ -35,7 +35,36 @@ return <main className="app-shell"><header className="app-header"><div className
 {tab==="Chat"&&<Chat tokens={tokens} onTokens={save}/>}
 {tab==="Eventos"&&<div className="quick-grid"><div className="content-card"><CalendarDays/><h3>Jogos e encontros</h3><p>Confira os próximos eventos da sua comunidade.</p><small className="coming">Módulo em desenvolvimento</small></div><div className="content-card"><Users/><h3>Caravanas</h3><p>Organize viagens e reúna sua torcida.</p><small className="coming">Módulo em desenvolvimento</small></div></div>}
 {tab==="Loja"&&<Store tokens={tokens} onTokens={save}/>}
-{tab==="Mais"&&<div className="quick-grid"><div className="content-card"><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></div><div className="content-card"><Settings/><b>Configurações</b><small>Privacidade e segurança</small></div><TorcidasPanel tokens={tokens} api={API}/><ModeracaoPanel tokens={tokens} api={API}/></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
+{tab==="Mais"&&<div className="quick-grid"><div className="content-card"><UserCircle/><b>Meu perfil</b><small>Dados e publicações</small></div><div className="content-card"><Settings/><b>Configurações</b><small>Privacidade e segurança</small></div><TorcidasPanel tokens={tokens} api={API}/><PlatformAdminPanel tokens={tokens} api={API}/><ModeracaoPanel tokens={tokens} api={API}/></div>}</section><nav className="mobile-nav">{nav.map(n=><button className={tab===n.name?"selected":""} onClick={()=>setTab(n.name)} key={n.name}><n.icon/><span>{n.name}</span></button>)}</nav><footer className="app-footer"><ShieldCheck/> TORCIDA+ · A paixão nos conecta.</footer></main>
+}
+
+
+function PlatformAdminPanel({tokens,api}:{tokens:Tokens;api:string}){
+ const [overview,setOverview]=useState<any>(null),[users,setUsers]=useState<any[]>([]),[torcidas,setTorcidas]=useState<any[]>([]);
+ const [query,setQuery]=useState(""),[filter,setFilter]=useState("todos"),[page,setPage]=useState(1),[count,setCount]=useState(0);
+ const [loading,setLoading]=useState(false),[denied,setDenied]=useState(false),[error,setError]=useState("");
+ async function get(path:string){const r=await fetch(api+path,{headers:{Authorization:"Bearer "+tokens.access}});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.detail||"Falha ao consultar painel administrativo.");(e as any).status=r.status;throw e;}return d;}
+ async function loadUsers(p=page,q=query,f=filter){const params=new URLSearchParams({page:String(p)});if(q.trim())params.set("q",q.trim());if(f!=="todos")params.set("status",f);const d=await get("/api/auth/platform-admin/users/?"+params.toString());setUsers(d.results||[]);setCount(d.count||0);}
+ async function load(){if(!tokens.access)return;setLoading(true);setError("");setDenied(false);try{const [o,t]=await Promise.all([get("/api/auth/platform-admin/overview/"),get("/api/auth/platform-admin/torcidas/")]);setOverview(o);setTorcidas(t.results||[]);await loadUsers(1,query,filter);setPage(1);}catch(e){if((e as any)?.status===403)setDenied(true);else setError(e instanceof Error?e.message:"Falha ao carregar painel.");}finally{setLoading(false);}}
+ useEffect(()=>{load()},[tokens.access]);
+ async function search(e:FormEvent){e.preventDefault();setLoading(true);setError("");try{await loadUsers(1,query,filter);setPage(1);}catch(e){setError(e instanceof Error?e.message:"Falha ao pesquisar.");}finally{setLoading(false);}}
+ async function changePage(next:number){setLoading(true);try{await loadUsers(next);setPage(next);}catch(e){setError(e instanceof Error?e.message:"Falha ao mudar página.");}finally{setLoading(false);}}
+ if(denied)return <section className="content-card" style={{gridColumn:"1 / -1"}}><h2><ShieldCheck/> Administração global</h2><p>Área exclusiva do administrador global do TORCIDA+.</p></section>;
+ return <section className="content-card" style={{gridColumn:"1 / -1"}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div><h2><ShieldCheck/> Painel administrativo global</h2><p>Visão geral de usuários, comunidades e moderação da plataforma.</p></div><button className="outline-btn" onClick={load} disabled={loading}>{loading?"Atualizando...":"Atualizar dados"}</button></div>
+  {error&&<p className="error">{error}</p>}{loading&&!overview&&<p>Carregando painel...</p>}
+  {overview&&<>
+   <div className="quick-grid" style={{marginTop:14}}>
+    {[[overview.usuarios_total,"Usuários cadastrados"],[overview.usuarios_ativos,"Usuários ativos"],[overview.usuarios_bloqueados,"Contas bloqueadas"],[overview.torcidas_total,"Torcidas"],[overview.integrantes_total,"Vínculos de membros"],[overview.publicacoes_pendentes,"Publicações pendentes"],[overview.publicacoes_aprovadas,"Publicações aprovadas"],[overview.publicacoes_rejeitadas,"Publicações rejeitadas"]].map(([value,label])=><div className="content-card" key={String(label)}><b style={{fontSize:26}}>{value}</b><small style={{display:"block",opacity:.75}}>{label}</small></div>)}
+   </div>
+   <h3 style={{marginTop:22}}>Gestão de usuários</h3>
+   <form onSubmit={search} style={{display:"flex",gap:8,flexWrap:"wrap",margin:"12px 0"}}><input className="dark-input" style={{flex:"1 1 180px"}} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar por usuário ou e-mail"/><select className="dark-input" value={filter} onChange={e=>setFilter(e.target.value)}><option value="todos">Todos</option><option value="ativos">Ativos</option><option value="bloqueados">Bloqueados</option></select><button className="primary-btn">Pesquisar</button></form>
+   <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}><thead><tr><th align="left">Usuário</th><th align="left">E-mail</th><th align="left">Status</th><th align="left">Torcidas</th><th align="left">Cadastro</th></tr></thead><tbody>{users.map(u=><tr key={u.id} style={{borderTop:"1px solid #444"}}><td style={{padding:"10px 6px"}}>@{u.username}{u.is_superuser&&<small style={{display:"block"}}>Administrador global</small>}</td><td>{u.email||"—"}</td><td>{u.is_active?"Ativo":"Bloqueado"}</td><td>{u.total_torcidas}</td><td>{u.date_joined?new Date(u.date_joined).toLocaleDateString("pt-BR"):"—"}</td></tr>)}</tbody></table></div>
+   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}><small>{count} usuário(s) · Página {page} de {Math.max(1,Math.ceil(count/30))}</small><div style={{display:"flex",gap:8}}><button className="outline-btn" disabled={page<=1||loading} onClick={()=>changePage(page-1)}>Anterior</button><button className="outline-btn" disabled={page>=Math.ceil(count/30)||loading} onClick={()=>changePage(page+1)}>Próxima</button></div></div>
+   <h3 style={{marginTop:24}}>Comunidades cadastradas</h3>
+   {torcidas.length===0?<p>Nenhuma torcida cadastrada.</p>:torcidas.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap",padding:"10px 0",borderTop:"1px solid #444"}}><div><b>{t.nome}</b><small style={{display:"block",opacity:.7}}>/{t.slug} · ID {t.id}</small></div><small>{t.total_membros} membros · {t.total_publicacoes} publicações</small></div>)}
+  </>}
+ </section>;
 }
 
 function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
