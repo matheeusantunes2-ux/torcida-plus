@@ -95,3 +95,36 @@ class PlatformAdminTorcidasView(PlatformAdminAPIView):
                 "total_publicacoes": torcida.total_publicacoes,
             } for torcida in queryset[:100]],
         })
+
+
+class PlatformAdminUserStatusView(PlatformAdminAPIView):
+    """Permite ao administrador global bloquear ou reativar contas comuns."""
+
+    def patch(self, request, user_id):
+        self.check_admin(request)
+        if not isinstance(request.data.get("is_active"), bool):
+            return Response(
+                {"detail": "Informe is_active como true ou false."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        target = User.objects.filter(pk=user_id).first()
+        if target is None:
+            return Response({"detail": "Usuário não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        if target.pk == request.user.pk:
+            return Response(
+                {"detail": "Você não pode alterar o status da própria conta por este painel."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if target.is_superuser:
+            return Response(
+                {"detail": "Contas de administrador global não podem ser bloqueadas por este recurso."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        target.is_active = request.data["is_active"]
+        target.save(update_fields=["is_active"])
+        return Response({
+            "id": target.pk,
+            "username": target.username,
+            "is_active": target.is_active,
+            "detail": "Conta reativada com sucesso." if target.is_active else "Conta bloqueada com sucesso.",
+        })
