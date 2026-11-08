@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -10,7 +9,7 @@ from rest_framework.views import APIView
 from community.models import Notificacao
 from accounts.permissions import is_platform_admin
 
-from .models import Conversa, ParticipanteConversa, Mensagem
+from .models import Conversa
 from .serializers import ConversaSerializer, MensagemSerializer
 
 
@@ -18,8 +17,12 @@ def conversas_do_usuario(usuario):
     queryset = Conversa.objects.select_related("torcida")
     if is_platform_admin(usuario):
         return queryset.all()
+    # A participação no chat não substitui o vínculo atual com a torcida.
+    # Isso revoga também o acesso ao histórico após a remoção do membro.
     return queryset.filter(
-        participantes__usuario=usuario, participantes__ativo=True
+        participantes__usuario=usuario,
+        participantes__ativo=True,
+        torcida__membros__usuario=usuario,
     ).distinct()
 
 
@@ -64,8 +67,8 @@ class ListaCriarMensagemView(APIView):
         serializer = MensagemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
-            mensagem = Mensagem.objects.create(
-                conversa=conversa, autor=request.user,
+            mensagem = conversa.mensagens.create(
+                autor=request.user,
                 conteudo=serializer.validated_data["conteudo"],
             )
             conversa.save(update_fields=["atualizada_em"])
