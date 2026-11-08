@@ -21,5 +21,7 @@ urlpatterns = [
     path("api/loja/", include("store.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# As imagens enviadas pelos usuários precisam ser acessíveis também em produção.
+# Em produção com armazenamento persistente/objeto, este caminho pode ser servido
+# por um CDN; no momento, o Django atende os arquivos em MEDIA_ROOT.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
