@@ -38,3 +38,34 @@ class CadastroTests(APITestCase):
     def test_perfil_privado_exige_autenticacao(self):
         response = self.client.get("/api/auth/perfil/")
         self.assertEqual(response.status_code, 401)
+
+
+class PlatformAdminDashboardTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            username="platform_admin", email="admin@example.com",
+            password="UmaSenha-Forte-2026!"
+        )
+        self.member = User.objects.create_user(
+            username="membro_teste", email="membro@example.com",
+            password="UmaSenha-Forte-2026!"
+        )
+
+    def test_dashboard_exige_admin_global(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get("/api/auth/platform-admin/overview/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_global_consulta_indicadores(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/auth/platform-admin/overview/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["usuarios_total"], 2)
+        self.assertEqual(response.data["usuarios_ativos"], 2)
+
+    def test_admin_global_lista_usuarios(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/auth/platform-admin/users/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
+        self.assertTrue(any(u["username"] == "membro_teste" for u in response.data["results"]))
