@@ -128,3 +128,50 @@ class PlatformAdminUserStatusView(PlatformAdminAPIView):
             "is_active": target.is_active,
             "detail": "Conta reativada com sucesso." if target.is_active else "Conta bloqueada com sucesso.",
         })
+
+
+class PlatformAdminTorcidaDetailView(PlatformAdminAPIView):
+    """Edição e exclusão protegida de comunidades pelo administrador global."""
+
+    def patch(self, request, torcida_id):
+        self.check_admin(request)
+        torcida = Torcida.objects.filter(pk=torcida_id).first()
+        if torcida is None:
+            return Response({"detail": "Torcida não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        allowed = {"nome", "slug", "escudo_url", "cor_principal"}
+        data = {key: value for key, value in request.data.items() if key in allowed}
+        if not data:
+            return Response({"detail": "Nenhum campo válido foi enviado."}, status=status.HTTP_400_BAD_REQUEST)
+        if "nome" in data:
+            if not isinstance(data["nome"], str) or not data["nome"].strip():
+                return Response({"detail": "Informe um nome válido."}, status=status.HTTP_400_BAD_REQUEST)
+            data["nome"] = data["nome"].strip()[:120]
+        if "slug" in data:
+            import re
+            slug = re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]", "-", str(data["slug"]).strip().lower())).strip("-")
+            if not slug or len(slug) > 140:
+                return Response({"detail": "Identificador inválido."}, status=status.HTTP_400_BAD_REQUEST)
+            if Torcida.objects.filter(slug=slug).exclude(pk=torcida.pk).exists():
+                return Response({"detail": "Este identificador já está em uso."}, status=status.HTTP_400_BAD_REQUEST)
+            data["slug"] = slug
+        if "cor_principal" in data:
+            import re
+            if not isinstance(data["cor_principal"], str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", data["cor_principal"]):
+                return Response({"detail": "A cor deve estar no formato hexadecimal, como #202020."}, status=status.HTTP_400_BAD_REQUEST)
+        for key, value in data.items():
+            setattr(torcida, key, value)
+        torcida.save(update_fields=list(data.keys()))
+        return Response({"id": torcida.pk, "nome": torcida.nome, "slug": torcida.slug, "escudo_url": torcida.escudo_url, "cor_principal": torcida.cor_principal, "detail": "Torcida atualizada com sucesso."})
+
+    def delete(self, request, torcida_id):
+        self.check_admin(request)
+        torcida = Torcida.objects.filter(pk=torcida_id).first()
+        if torcida is None:
+            return Response({"detail": "Torcida não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        membros = torcida.membros.count()
+        publicacoes = torcida.publicacoes.count()
+        if membros or publicacoes:
+            return Response({"detail": f"Exclusão bloqueada: esta torcida possui {membros} integrante(s) e {publicacoes} publicação(ões). Remova ou transfira esses vínculos antes."}, status=status.HTTP_409_CONFLICT)
+        nome = torcida.nome
+        torcida.delete()
+        return Response({"detail": f'Torcida "{nome}" excluída.'}, status=status.HTTP_200_OK)
