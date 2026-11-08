@@ -54,3 +54,30 @@
 /* Checkout e finalizacao da compra TORCIDA+ */
 .payment-choice{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:12px 0;border-top:1px solid #ffffff16}.payment-choice h4{grid-column:1/-1;margin:0;font-size:12px;color:#eee}.payment-choice label{display:flex;flex-direction:row;align-items:center;gap:8px;padding:12px;background:#0d0d13;border:1px solid #ffffff20;border-radius:10px;cursor:pointer;min-width:0}.payment-choice label.chosen{border-color:#ed1029;background:#2a1018}.payment-choice label>input{width:auto;accent-color:#ed1029}.payment-choice label>svg{width:19px;color:#ff6476;flex-shrink:0}.payment-choice label span{display:flex;flex-direction:column;gap:3px}.payment-choice label b{font-size:11px;color:#fff}.payment-choice label small{font-size:9px;color:#aaa}.store-finish{max-width:650px;width:100%;margin:0 auto;padding:24px}.finish-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#173b2b;color:#69e6a0;margin-bottom:15px}.finish-icon svg{width:30px;height:30px}.store-finish h2{font-family:'Barlow Condensed';font-size:29px;margin:6px 0}.store-finish>p{color:#aaa;font-size:12px;line-height:1.6}.finish-summary{margin:18px 0;background:#0d0d13;border:1px solid #ffffff18;border-radius:12px;padding:14px}.finish-summary>div{padding:7px 0;font-size:12px;color:#ccc}.finish-total{display:flex;justify-content:space-between;border-top:1px solid #ffffff20;margin-top:8px;padding-top:14px!important}.finish-total strong{font-size:19px;color:#ff7182}.finish-status{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:10px;background:#21151a;border:1px solid #ed102944}.finish-status span,.finish-status small{font-size:10px;color:#aaa}.finish-status b{font-size:14px;color:#fff}.finish-help{margin:14px 0}.finish-actions{display:grid;gap:9px}.finish-actions .primary-btn{margin:0}.finish-actions .outline-btn{width:100%;justify-content:center;padding:12px}.payment-choice+.store-delivery label{min-width:0}
 @media(max-width:600px){.payment-choice{grid-template-columns:1fr}.payment-choice label{padding:10px}.store-finish{padding:17px}.store-finish h2{font-size:25px}}
+
+
+/* Redesign TORCIDA+: navegação lateral, imagem de estádio e hierarquia visual */
+.app-shell{padding-left:238px}
+.app-header{max-width:none;margin:0;padding:0 clamp(20px,4vw,52px);height:76px;background:#0c0c12;border-bottom:1px solid #ffffff12}
+.desktop-tabs{position:fixed;z-index:30;left:0;top:0;bottom:0;width:238px;height:100dvh;max-width:none;margin:0;padding:22px 14px;display:flex;flex-direction:column;gap:7px;justify-content:flex-start;background:linear-gradient(180deg,#171018 0%,#0c0c12 48%,#09090d 100%);border-right:1px solid #ffffff18;box-shadow:14px 0 40px #0005}
+.desktop-tabs:before{content:"TORCIDA+";display:block;font-family:'Barlow Condensed';font-size:29px;font-weight:800;font-style:italic;letter-spacing:.5px;color:#fff;padding:8px 14px 28px;border-bottom:1px solid #ffffff18;margin-bottom:14px}
+.desktop-tabs:after{content:"A PAIXÃO NOS CONECTA";display:block;margin:auto 10px 12px;color:#777;font-size:9px;letter-spacing:1.4px}
+.desktop-tabs button{width:100%;min-height:46px;justify-content:flex-start;padding:0 14px;border-radius:11px;color:#aaa;font-size:12px;transition:background .2s,color .2s}
+.desktop-tabs button:hover{background:#ffffff0d;color:#fff}
+.desktop-tabs button.selected{background:linear-gradient(100deg,#ed1029,#a70b21);color:#fff;box-shadow:0 8px 22px #ed102933}
+.sidebar-badge{margin-left:auto;min-width:20px;height:20px;border-radius:20px;background:#fff;color:#c00;display:grid;place-items:center;font-size:10px;font-style:normal;font-weight:800;padding:0 5px}
+.dashboard{width:min(1100px,calc(100% - 64px));margin:34px auto}
+.sidebar-toggle{display:none;border:1px solid #ffffff20;background:#191920;color:#fff;border-radius:10px;width:40px;height:40px;place-items:center}
+.sidebar-toggle svg{width:20px}
+.featured-banner{position:relative;overflow:hidden;min-height:290px;padding:34px;background-image:linear-gradient(90deg,rgba(5,5,9,.96) 0%,rgba(8,7,12,.82) 44%,rgba(8,7,12,.25) 100%),url('https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1600&q=85');background-position:center;background-size:cover;border:1px solid #ed102955;box-shadow:0 18px 55px #0006}
+.featured-banner h2{font-size:54px;max-width:420px;text-shadow:0 3px 20px #000}
+.featured-banner p{font-size:14px;max-width:360px;color:#e0dce0}
+.section-title{align-items:center}
+.feed-card,.content-card{box-shadow:0 12px 34px #0003}
+.feed-card{transition:transform .2s,border-color .2s}
+.feed-card:hover{transform:translateY(-2px);border-color:#ed102955}
+.post-image{max-height:520px;object-fit:cover;background:#08080b}
+.publish-form{background:linear-gradient(145deg,#19151c,#111116)}
+.app-footer{margin-left:0}
+@media(max-width:900px){.app-shell{padding-left:0}.app-header{padding:0 18px}.desktop-tabs{display:none}.desktop-tabs.open{display:flex;position:fixed;z-index:42;left:0;top:0;bottom:0;width:min(300px,82vw);height:100dvh;padding:24px 15px;box-shadow:20px 0 70px #000b}.sidebar-toggle{display:grid}.sidebar-backdrop{display:block;position:fixed;z-index:41;inset:0;background:#0009;border:0;backdrop-filter:blur(3px)}.dashboard{width:min(900px,calc(100% - 32px));margin:26px auto 90px}}
+@media(max-width:700px){.app-header{height:64px;gap:12px}.wordmark{font-size:27px}.featured-banner{min-height:245px;padding:23px;background-position:58% center}.featured-banner h2{font-size:43px}.featured-banner p{max-width:250px}.dashboard{width:calc(100% - 28px)}}
