@@ -50,6 +50,7 @@ class AnexoMensagem(models.Model):
     class Tipo(models.TextChoices):
         IMAGEM = "imagem", "Imagem"
         VIDEO = "video", "Vídeo"
+        AUDIO = "audio", "Áudio"
 
     mensagem = models.ForeignKey(Mensagem, on_delete=models.CASCADE, related_name="anexos")
     tipo = models.CharField(max_length=10, choices=Tipo.choices)
