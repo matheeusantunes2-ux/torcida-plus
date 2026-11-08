@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 
 from torcidas.models import Membro
+from accounts.permissions import is_platform_admin
 from .models import Publicacao, Notificacao
 from .permissions import AutorPodeEditarPublicacao
 from .serializers import PublicacaoSerializer
@@ -14,9 +15,12 @@ class PublicacaoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         usuario = self.request.user
 
-        queryset = Publicacao.objects.filter(
-            torcida__membros__usuario=usuario
-        ).select_related("autor", "torcida").distinct()
+        queryset = Publicacao.objects.all()
+        if not is_platform_admin(usuario):
+            queryset = queryset.filter(
+                torcida__membros__usuario=usuario
+            )
+        queryset = queryset.select_related("autor", "torcida").distinct()
 
         torcida_id = self.request.query_params.get("torcida")
 
