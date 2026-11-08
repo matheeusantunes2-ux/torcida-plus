@@ -4,8 +4,8 @@ from .models import Publicacao, Comentario, Curtida, Notificacao
 
 @admin.register(Publicacao)
 class PublicacaoAdmin(admin.ModelAdmin):
-    list_display = ("id", "torcida", "autor", "criada_em")
-    list_filter = ("torcida",)
+    list_display = ("id", "torcida", "autor", "status", "criada_em")
+    list_filter = ("torcida", "status")
     search_fields = ("texto", "autor__username", "torcida__nome")
     readonly_fields = ("criada_em", "atualizada_em")
 
