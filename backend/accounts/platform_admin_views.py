@@ -247,3 +247,29 @@ class PlatformAdminTorcidaMemberView(PlatformAdminAPIView):
             membro.delete()
         registrar_acao(request, "membro_removido", "membro_torcida", membro_id, "@" + username + " removido de " + torcida.nome + ".", {"torcida_id": torcida.pk, "torcida": torcida.nome, "usuario": username, "papel": papel_removido})
         return Response({"detail": "Integrante removido da torcida."}, status=status.HTTP_200_OK)
+
+
+class PlatformAdminUserPasswordResetView(PlatformAdminAPIView):
+    """Redefine a senha de uma conta comum sem expor a senha anterior."""
+
+    def post(self, request, user_id):
+        self.check_admin(request)
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        target = User.objects.filter(pk=user_id).first()
+        if target is None:
+            return Response({"detail": "Usuário não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        if target.pk == request.user.pk or target.is_superuser:
+            return Response({"detail": "Não é permitido redefinir a própria senha ou a senha de outro administrador global por este recurso."}, status=status.HTTP_403_FORBIDDEN)
+        new_password = request.data.get("new_password")
+        if not isinstance(new_password, str) or not new_password:
+            return Response({"detail": "Informe uma nova senha no campo new_password."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new_password, user=target)
+        except ValidationError as exc:
+            return Response({"detail": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        target.set_password(new_password)
+        target.save(update_fields=["password"])
+        registrar_acao(request, "senha_redefinida", "usuario", target.pk, "Senha redefinida pelo administrador para @" + target.username + ".", {"username": target.username})
+        return Response({"id": target.pk, "username": target.username, "detail": "Senha redefinida. Informe a nova senha ao titular por um canal privado e seguro."}, status=status.HTTP_200_OK)
