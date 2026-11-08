@@ -43,7 +43,18 @@ class PublicacaoViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(autor=self.request.user, status=Publicacao.Status.PENDENTE)
+        publicacao = serializer.save(autor=self.request.user, status=Publicacao.Status.PENDENTE)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        administradores = User.objects.filter(is_superuser=True).exclude(pk=self.request.user.pk)
+        for administrador in administradores.iterator():
+            Notificacao.objects.create(
+                destinatario=administrador,
+                ator=self.request.user,
+                tipo=Notificacao.Tipo.PUBLICACAO_PENDENTE,
+                texto="Nova publicação aguardando sua aprovação.",
+                referencia=f"moderacao:publicacao:{publicacao.pk}",
+            )
 
     def _exigir_admin_global(self):
         if not is_platform_admin(self.request.user):
