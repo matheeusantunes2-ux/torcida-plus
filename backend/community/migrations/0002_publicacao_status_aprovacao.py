@@ -7,6 +7,11 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="publicacao",
+            name="imagem",
+            field=models.ImageField(blank=True, null=True, upload_to="publicacoes/"),
+        ),
+        migrations.AddField(
+            model_name="publicacao",
             name="status",
             field=models.CharField(choices=[("pendente", "Aguardando aprovação"), ("aprovada", "Aprovada"), ("rejeitada", "Rejeitada")], db_index=True, default="aprovada", max_length=12),
         ),
