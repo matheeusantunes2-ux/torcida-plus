@@ -34,6 +34,8 @@ VIDEO_TYPES = {
     "video/webm": "webm",
     "video/quicktime": "mov",
 }
+AUDIO_TYPES = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav", "audio/x-wav": "wav"}
+MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
 
 def conversas_do_usuario(usuario):
@@ -75,7 +77,22 @@ def validar_arquivo(upload):
         if content_type == "video/quicktime" and (len(header) < 12 or header[4:8] != b"ftyp"):
             raise ValidationError({"arquivo": "O arquivo MOV não passou na validação."})
         return "video", VIDEO_TYPES[content_type], "video", content_type
-    raise ValidationError({"arquivo": "Formato não permitido. Envie JPG, PNG, WEBP, GIF, MP4, WEBM ou MOV."})
+    if content_type in AUDIO_TYPES:
+        if upload.size > MAX_AUDIO_BYTES:
+            raise ValidationError({"arquivo": "Áudios devem ter no máximo 25 MB."})
+        header = upload.read(16)
+        upload.seek(0)
+        valid = (
+            (content_type == "audio/webm" and header.startswith(bytes([0x1a, 0x45, 0xdf, 0xa3]))) or
+            (content_type == "audio/ogg" and header.startswith(b"OggS")) or
+            (content_type == "audio/mpeg" and (header.startswith(b"ID3") or (len(header) > 1 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0))) or
+            (content_type == "audio/mp4" and len(header) >= 8 and header[4:8] == b"ftyp") or
+            (content_type in ("audio/wav", "audio/x-wav") and header.startswith(b"RIFF") and header[8:12] == b"WAVE")
+        )
+        if not valid:
+            raise ValidationError({"arquivo": "O áudio não passou na validação do formato."})
+        return "video", AUDIO_TYPES[content_type], "audio", content_type
+    raise ValidationError({"arquivo": "Formato não permitido. Envie imagens, vídeos ou áudios nos formatos aceitos."})
 
 
 class ListaCriarConversaView(APIView):
@@ -143,7 +160,7 @@ class EnviarAnexoMensagemView(APIView):
             return Response({"detail": "Não foi possível armazenar o arquivo. Verifique a configuração do Cloudinary e tente novamente."}, status=status.HTTP_502_BAD_GATEWAY)
         caption = (request.data.get("conteudo") or "").strip()[:4000]
         if not caption:
-            caption = "📷 Imagem" if kind == "imagem" else "🎥 Vídeo"
+            caption = "📷 Imagem" if kind == "imagem" else ("🎙️ Áudio" if kind == "audio" else "🎥 Vídeo")
         try:
             with transaction.atomic():
                 mensagem = conversa.mensagens.create(autor=request.user, conteudo=caption)
