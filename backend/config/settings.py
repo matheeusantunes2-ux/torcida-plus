@@ -26,7 +26,12 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
-DEBUG = env_bool("DJANGO_DEBUG", True)
+# O Render define RENDER no ambiente. Em produção, DEBUG fica desligado por padrão.
+IS_RENDER = bool(os.getenv("RENDER"))
+DEBUG = env_bool("DJANGO_DEBUG", not IS_RENDER)
+if IS_RENDER and DEBUG:
+    raise RuntimeError("DJANGO_DEBUG não pode ser true no ambiente de produção do Render.")
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     if not DEBUG:
@@ -35,10 +40,17 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1,testserver",
+    "localhost,127.0.0.1,testserver" if DEBUG else "",
 )
+# O Render fornece automaticamente o hostname público do serviço.
+RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 if not DEBUG and not ALLOWED_HOSTS:
-    raise RuntimeError("Configure DJANGO_ALLOWED_HOSTS fora do modo DEBUG.")
+    raise RuntimeError(
+        "Configure DJANGO_ALLOWED_HOSTS ou verifique RENDER_EXTERNAL_HOSTNAME em produção."
+    )
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -167,7 +179,9 @@ if not DEBUG:
     CSRF_COOKIE_SAMESITE = "Lax"
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"
-    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+    # HSTS por um ano em produção. Não habilite preload/subdomínios sem validar
+    # previamente todos os domínios atendidos pela aplicação.
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
         "SECURE_HSTS_INCLUDE_SUBDOMAINS", False
     )
@@ -176,7 +190,9 @@ if not DEBUG:
 
     # Configure somente quando a aplicação estiver atrás de proxy confiável
     # que remova e defina corretamente o cabeçalho X-Forwarded-Proto.
-    if env_bool("USE_X_FORWARDED_PROTO", False):
+    # No Render, o proxy da plataforma informa o protocolo original.
+    # Fora do Render, só confie nesse cabeçalho se o proxy o sobrescrever.
+    if IS_RENDER or env_bool("USE_X_FORWARDED_PROTO", False):
         SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
