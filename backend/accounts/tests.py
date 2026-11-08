@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
+from accounts.models import AdminAuditLog
 
 User = get_user_model()
 
@@ -115,3 +116,24 @@ class PlatformAdminDashboardTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 2)
         self.assertTrue(any(u["username"] == "membro_teste" for u in response.data["results"]))
+
+    def test_bloqueio_de_usuario_gera_registro_de_auditoria(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            f"/api/auth/platform-admin/users/{self.member.pk}/status/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        log = AdminAuditLog.objects.get(entidade="usuario", entidade_id=str(self.member.pk))
+        self.assertEqual(log.ator, self.admin)
+        self.assertEqual(log.acao, "usuario_bloqueado")
+
+    def test_historico_de_auditoria_e_restrito_ao_admin_global(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get("/api/auth/platform-admin/audit/")
+        self.assertEqual(response.status_code, 403)
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/auth/platform-admin/audit/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("results", response.data)
