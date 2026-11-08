@@ -1,8 +1,34 @@
 from PIL import Image, UnidentifiedImageError
+from django.core import signing
+from django.urls import reverse
+from urllib.parse import urlencode
 from rest_framework import serializers
 
 from torcidas.models import Membro, Torcida
 from .models import Publicacao
+
+
+class SignedPublicationImageField(serializers.ImageField):
+    """Gera URL temporária vinculada a membro autorizado da torcida."""
+
+    def to_representation(self, value):
+        if not value:
+            return None
+        request = self.context.get("request")
+        publicacao = self.parent.instance
+        if not request or not request.user.is_authenticated or not publicacao:
+            return None
+        token = signing.dumps(
+            {
+                "publicacao_id": publicacao.pk,
+                "usuario_id": request.user.pk,
+                "arquivo": value.name,
+            },
+            salt="torcida-publicacao-media-v1",
+        )
+        path = reverse("media-publicacao", kwargs={"path": value.name})
+        url = f"{path}?{urlencode({'token': token})}"
+        return request.build_absolute_uri(url)
 
 
 class PublicacaoSerializer(serializers.ModelSerializer):
