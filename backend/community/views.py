@@ -28,6 +28,10 @@ class PublicacaoViewSet(viewsets.ModelViewSet):
 
         torcida_id = self.request.query_params.get("torcida")
 
+        status_filtro = self.request.query_params.get("status")
+        if status_filtro in Publicacao.Status.values:
+            queryset = queryset.filter(status=status_filtro)
+
         if torcida_id:
             if not torcida_id.isdigit():
                 raise ValidationError({
