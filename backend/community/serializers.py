@@ -38,9 +38,11 @@ class PublicacaoSerializer(serializers.ModelSerializer):
             "total_comentarios",
             "curtida_pelo_usuario",
             "texto",
+            "status",
             "imagem",
             "criada_em",
             "atualizada_em",
+            "status",
         ]
         read_only_fields = [
             "id",
