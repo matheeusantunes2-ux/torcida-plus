@@ -63,6 +63,52 @@ class PlatformAdminDashboardTests(APITestCase):
         self.assertEqual(response.data["usuarios_total"], 2)
         self.assertEqual(response.data["usuarios_ativos"], 2)
 
+    def test_admin_global_bloqueia_usuario_comum(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            f"/api/auth/platform-admin/users/{self.member.pk}/status/",
+            {"is_active": False},
+            format="json",
+        )
+        self.member.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.member.is_active)
+
+    def test_admin_global_reativa_usuario_comum(self):
+        self.member.is_active = False
+        self.member.save(update_fields=["is_active"])
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            f"/api/auth/platform-admin/users/{self.member.pk}/status/",
+            {"is_active": True},
+            format="json",
+        )
+        self.member.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.member.is_active)
+
+    def test_admin_global_nao_pode_bloquear_a_propria_conta(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            f"/api/auth/platform-admin/users/{self.admin.pk}/status/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_global_nao_pode_bloquear_outro_superuser(self):
+        outro_admin = User.objects.create_superuser(
+            username="outro_admin", email="outro-admin@example.com",
+            password="UmaSenha-Forte-2026!"
+        )
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            f"/api/auth/platform-admin/users/{outro_admin.pk}/status/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
     def test_admin_global_lista_usuarios(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.get("/api/auth/platform-admin/users/")
