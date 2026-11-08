@@ -11,6 +11,10 @@ from .models import Publicacao
 class SignedPublicationImageField(serializers.ImageField):
     """Gera URL temporária vinculada a membro autorizado da torcida."""
 
+    def get_attribute(self, instance):
+        self._current_publicacao = instance
+        return super().get_attribute(instance)
+
     def to_representation(self, value):
         if not value:
             return None
