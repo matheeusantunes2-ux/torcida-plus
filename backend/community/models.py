@@ -88,6 +88,7 @@ class Notificacao(models.Model):
         COMENTARIO = "comentario", "Comentário"
         MENSAGEM = "mensagem", "Mensagem"
         CONVITE = "convite", "Convite"
+        PUBLICACAO_PENDENTE = "publicacao_pendente", "Publicação aguardando aprovação"
 
     destinatario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notificacoes_torcida")
     ator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="notificacoes_enviadas_torcida")
