@@ -271,3 +271,44 @@ class LiderPelotaoPermissoesTests(APITestCase):
         vinculo.refresh_from_db()
         self.assertEqual(vinculo.papel, Membro.Papel.LIDER_PELOTAO)
         self.assertEqual(vinculo.pelotao_id, self.sul.pk)
+
+
+class AtividadesPelotoesTests(APITestCase):
+    def setUp(self):
+        from .models import Pelotao, AtividadePelotao
+        self.admin = User.objects.create_user(username="admin_audit", password="Senha-Forte-2026!")
+        self.leader = User.objects.create_user(username="leader_audit", password="Senha-Forte-2026!")
+        self.member = User.objects.create_user(username="member_audit", password="Senha-Forte-2026!")
+        self.other_leader = User.objects.create_user(username="leader_sul_audit", password="Senha-Forte-2026!")
+        self.torcida = Torcida.objects.create(nome="Auditoria FC", slug="auditoria-fc")
+        self.norte = Pelotao.objects.create(torcida=self.torcida, nome="Norte", slug="norte-audit")
+        self.sul = Pelotao.objects.create(torcida=self.torcida, nome="Sul", slug="sul-audit")
+        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel=Membro.Papel.ADMIN)
+        Membro.objects.create(usuario=self.leader, torcida=self.torcida, papel=Membro.Papel.LIDER_PELOTAO, pelotao=self.norte)
+        Membro.objects.create(usuario=self.other_leader, torcida=self.torcida, papel=Membro.Papel.LIDER_PELOTAO, pelotao=self.sul)
+        Membro.objects.create(usuario=self.member, torcida=self.torcida, pelotao=self.norte)
+        AtividadePelotao.objects.create(torcida=self.torcida, pelotao=self.norte, ator=self.admin, acao="membro_entrou", descricao="Entrada no Norte")
+        AtividadePelotao.objects.create(torcida=self.torcida, pelotao=self.sul, ator=self.admin, acao="membro_entrou", descricao="Entrada no Sul")
+
+    def test_lider_consulta_somente_historico_do_proprio_pelotao(self):
+        self.client.force_authenticate(self.leader)
+        response = self.client.get(f"/api/torcidas/{self.torcida.pk}/atividades/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["pelotao"], self.norte.pk)
+
+    def test_lider_nao_pode_filtrar_outro_pelotao(self):
+        self.client.force_authenticate(self.leader)
+        response = self.client.get(f"/api/torcidas/{self.torcida.pk}/atividades/?pelotao_id={self.sul.pk}")
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_consulta_historico_de_todos_os_pelotoes(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(f"/api/torcidas/{self.torcida.pk}/atividades/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_membro_comum_nao_consulta_historico(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.get(f"/api/torcidas/{self.torcida.pk}/atividades/")
+        self.assertEqual(response.status_code, 403)
