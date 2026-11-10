@@ -50,7 +50,13 @@ class ListaMembrosView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, torcida_id):
         torcida = obter_torcida(request, torcida_id)
-        membros = Membro.objects.filter(torcida=torcida).select_related("usuario").order_by("id")
+        membros = Membro.objects.filter(torcida=torcida).select_related("usuario", "pelotao").order_by("id")
+        if not is_platform_admin(request.user):
+            atual = Membro.objects.filter(torcida=torcida, usuario=request.user).first()
+            if atual and atual.papel == Membro.Papel.LIDER_PELOTAO:
+                if atual.pelotao_id is None:
+                    raise PermissionDenied("Líder sem pelotão ativo não pode consultar integrantes.")
+                membros = membros.filter(pelotao_id=atual.pelotao_id)
         return Response(MembroSerializer(membros, many=True).data)
 
 class CriarConviteView(APIView):
