@@ -97,13 +97,19 @@ class PedidosView(APIView):
   tid=r.query_params.get("torcida")
   if not tid or not membro(r.user,tid):return Response({"detail":"Torcida inválida."},status=403)
   qs=Pedido.objects.filter(torcida_id=tid)
-  if not gerente(r.user,tid):qs=qs.filter(comprador=r.user)
-  return Response(PedidoSerializer(qs.prefetch_related("itens"),many=True).data)
+  can_manage=gerente(r.user,tid)
+  if not can_manage:qs=qs.filter(comprador=r.user)
+  return Response({"results":PedidoSerializer(qs.prefetch_related("itens"),many=True).data,"can_manage":can_manage})
  def patch(self,r,pk):
   p=get_object_or_404(Pedido,pk=pk)
   if not gerente(r.user,p.torcida_id):return Response({"detail":"Sem permissão."},status=403)
-  if r.data.get("status") not in dict(Pedido.Status.choices):return Response({"detail":"Status inválido."},status=400)
-  p.status=r.data["status"];p.save(update_fields=["status"]);return Response(PedidoSerializer(p).data)
+  allowed={Pedido.Status.SEPARACAO,Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO,Pedido.Status.CANCELADO}
+  status=r.data.get("status")
+  if status not in allowed:return Response({"detail":"Status inválido para gestão. A confirmação de pagamento é feita exclusivamente pelo Mercado Pago."},status=400)
+  if status==Pedido.Status.CANCELADO and p.status_pagamento=="approved":return Response({"detail":"Pedidos pagos não podem ser cancelados por aqui. Faça o estorno no provedor de pagamento."},status=409)
+  if status==Pedido.Status.ENVIADO and p.status not in (Pedido.Status.PAGO,Pedido.Status.SEPARACAO):return Response({"detail":"O pedido precisa estar pago antes do envio."},status=409)
+  if status==Pedido.Status.CONCLUIDO and p.status not in (Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO):return Response({"detail":"O pedido precisa estar enviado antes da conclusão."},status=409)
+  p.status=status;p.save(update_fields=["status"]);return Response(PedidoSerializer(p).data)
 
 
 
