@@ -13,6 +13,7 @@ from accounts.permissions import is_platform_admin
 from .models import Torcida, Membro, ConviteTorcida, Pelotao
 from community.models import Notificacao
 from .member_serializers import MembroSerializer
+from .audit_views import registrar_atividade
 
 def obter_torcida(request, torcida_id):
     queryset = Torcida.objects.all()
@@ -84,6 +85,7 @@ class CriarConviteView(APIView):
             raise ValidationError("Validade: 1–30 dias; limite de usos: 1–100.")
         token = secrets.token_urlsafe(32)
         convite = ConviteTorcida.objects.create(torcida=torcida, criado_por=request.user, token_hash=hashlib.sha256(token.encode()).hexdigest(), papel=papel, pelotao=pelotao, expira_em=timezone.now()+timedelta(days=dias), limite_usos=limite)
+        registrar_atividade(torcida, request.user, 'convite_criado', f'Convite criado para {pelotao.nome if pelotao else "a torcida"}.', pelotao)
         return Response({"id":convite.pk,"token":token,"torcida":torcida.nome,"papel":convite.papel,"expira_em":convite.expira_em,"limite_usos":convite.limite_usos,"pelotao":convite.pelotao.nome if convite.pelotao else None},status=status.HTTP_201_CREATED)
 
 class AceitarConviteView(APIView):
@@ -98,6 +100,7 @@ class AceitarConviteView(APIView):
                 if Membro.objects.filter(torcida=convite.torcida,usuario=request.user).exists(): raise ValidationError("Você já participa desta torcida.")
                 membro=Membro.objects.create(torcida=convite.torcida,usuario=request.user,papel=convite.papel,pelotao=convite.pelotao)
                 convite.usos+=1; convite.save(update_fields=["usos"])
+                registrar_atividade(convite.torcida, request.user, "membro_entrou", f"{request.user.username} entrou por convite.", convite.pelotao)
                 if convite.criado_por_id != request.user.id:
                     Notificacao.objects.create(destinatario=convite.criado_por,ator=request.user,tipo=Notificacao.Tipo.CONVITE,texto=f"{request.user.username} entrou no pelotão {convite.pelotao.nome}." if convite.pelotao else f"{request.user.username} entrou na torcida {convite.torcida.nome}.",referencia=f"torcida:{convite.torcida_id}")
         except ConviteTorcida.DoesNotExist: raise ValidationError({"token":"Convite inválido."})
@@ -111,6 +114,7 @@ class RevogarConviteView(APIView):
         convite=get_object_or_404(ConviteTorcida,pk=convite_id,torcida=torcida)
         if convite.revogado_em is None:
             convite.revogado_em=timezone.now(); convite.save(update_fields=["revogado_em"])
+            registrar_atividade(torcida, request.user, "convite_revogado", f"Convite #{convite.pk} revogado.", convite.pelotao)
         return Response({"mensagem":"Convite revogado."})
 
 class DetalheMembroView(APIView):
@@ -134,13 +138,26 @@ class DetalheMembroView(APIView):
             novo_pelotao = None if pelotao_id in (None, "") else get_object_or_404(Pelotao, pk=pelotao_id, torcida=torcida, ativo=True)
         if papel == Membro.Papel.LIDER_PELOTAO and novo_pelotao is None:
             raise ValidationError({"pelotao_id":"Um líder precisa estar vinculado a um pelotão ativo."})
+        papel_anterior, pelotao_anterior = membro.papel, membro.pelotao
         membro.papel=papel
         membro.pelotao=novo_pelotao
-        membro.save(update_fields=["papel", "pelotao"]); return Response(MembroSerializer(membro).data)
+        membro.save(update_fields=["papel", "pelotao"])
+        if papel != papel_anterior and (papel == Membro.Papel.LIDER_PELOTAO or papel_anterior == Membro.Papel.LIDER_PELOTAO):
+            acao = "lideranca_alterada"
+        elif novo_pelotao != pelotao_anterior:
+            acao = "vinculo_alterado"
+        else:
+            acao = "cargo_alterado"
+        descricao = f"Vínculo de {membro.usuario.username} atualizado: {papel_anterior} para {papel}; pelotão {pelotao_anterior.nome if pelotao_anterior else 'nenhum'} para {novo_pelotao.nome if novo_pelotao else 'nenhum'}."
+        registrar_atividade(torcida, request.user, acao, descricao, novo_pelotao or pelotao_anterior)
+        return Response(MembroSerializer(membro).data
     def delete(self,request,torcida_id,membro_id):
         torcida=obter_torcida(request,torcida_id)
         gestor=obter_gestor(request,torcida)
         membro=self.obter_membro(torcida,membro_id)
         exigir_alvo_do_gestor(gestor,membro)
         if membro.papel == Membro.Papel.ADMIN: raise ValidationError("Não é permitido remover um administrador por este endpoint.")
-        membro.delete(); return Response(status=status.HTTP_204_NO_CONTENT)
+        nome, pelotao = membro.usuario.username, membro.pelotao
+        membro.delete()
+        registrar_atividade(torcida, request.user, "membro_removido", f"{nome} foi removido do pelotão.", pelotao)
+        return Response(status=status.HTTP_204_NO_CONTENT)
