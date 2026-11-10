@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from accounts.permissions import is_platform_admin
 from .models import Torcida, Membro, Pelotao
+from .audit_views import registrar_atividade
 
 
 class PelotaoSerializer(serializers.ModelSerializer):
@@ -55,6 +56,7 @@ class ListaCriarPelotaoView(APIView):
         serializer = PelotaoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         pelotao = serializer.save(torcida=torcida)
+        registrar_atividade(torcida, request.user, 'pelotao_criado', f'Pelotão {pelotao.nome} criado.', pelotao)
         return Response(PelotaoSerializer(pelotao).data, status=status.HTTP_201_CREATED)
 
 
@@ -78,7 +80,9 @@ class DetalhePelotaoView(APIView):
         pelotao = get_object_or_404(Pelotao, pk=pelotao_id, torcida=torcida)
         serializer = PelotaoSerializer(pelotao, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        nome_anterior = pelotao.nome
         serializer.save()
+        registrar_atividade(torcida, request.user, 'pelotao_editado', f'Pelotão {nome_anterior} atualizado para {pelotao.nome}.', pelotao)
         return Response(serializer.data)
 
     def delete(self, request, torcida_id, pelotao_id):
@@ -87,4 +91,5 @@ class DetalhePelotaoView(APIView):
         pelotao = get_object_or_404(Pelotao, pk=pelotao_id, torcida=torcida)
         pelotao.ativo = False
         pelotao.save(update_fields=["ativo"])
+        registrar_atividade(torcida, request.user, "pelotao_desativado", f"Pelotão {pelotao.nome} desativado.", pelotao)
         return Response(status=status.HTTP_204_NO_CONTENT)
