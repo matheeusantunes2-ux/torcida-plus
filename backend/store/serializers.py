@@ -1,5 +1,9 @@
 from rest_framework import serializers
+from PIL import Image, UnidentifiedImageError
 from .models import Produto, ItemCarrinho, Pedido, ItemPedido
+
+MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024
+ALLOWED_PRODUCT_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 class ProdutoSerializer(serializers.ModelSerializer):
     imagem_url = serializers.SerializerMethodField()
@@ -12,6 +16,30 @@ class ProdutoSerializer(serializers.ModelSerializer):
         if not obj.imagem: return None
         url=obj.imagem.url
         return request.build_absolute_uri(url) if request else url
+
+    def validate_preco(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("O preço deve ser maior que zero.")
+        return value
+
+    def validate_quantidade(self, value):
+        if value < 0:
+            raise serializers.ValidationError("O estoque não pode ser negativo.")
+        return value
+
+    def validate_imagem(self, value):
+        if value.size > MAX_PRODUCT_IMAGE_BYTES:
+            raise serializers.ValidationError("A imagem deve ter no máximo 5 MB.")
+        try:
+            image = Image.open(value)
+            if image.format not in ALLOWED_PRODUCT_IMAGE_FORMATS:
+                raise serializers.ValidationError("Use uma imagem JPEG, PNG ou WEBP.")
+            image.verify()
+        except (UnidentifiedImageError, OSError, ValueError):
+            raise serializers.ValidationError("O arquivo enviado não é uma imagem válida.")
+        finally:
+            value.seek(0)
+        return value
 
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
     produto=ProdutoSerializer(read_only=True)
