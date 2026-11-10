@@ -8,6 +8,7 @@ class Conversa(models.Model):
         GRUPO = "grupo", "Grupo"
 
     torcida = models.ForeignKey("torcidas.Torcida", on_delete=models.CASCADE, related_name="conversas")
+    pelotao = models.ForeignKey("torcidas.Pelotao", on_delete=models.SET_NULL, null=True, blank=True, related_name="conversas")
     tipo = models.CharField(max_length=10, choices=Tipo.choices)
     nome = models.CharField(max_length=120, blank=True)
     criada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="conversas_criadas")
