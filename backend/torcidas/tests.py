@@ -137,3 +137,57 @@ class PlatformAdminTorcidasTests(APITestCase):
         response = self.client.get("/api/torcidas/")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(any(item["id"] == torcida.pk for item in response.data))
+
+
+class PelotoesTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="admin_pelotao", password="Senha-Forte-2026!")
+        self.membro = User.objects.create_user(username="membro_pelotao", password="Senha-Forte-2026!")
+        self.torcida = Torcida.objects.create(nome="Nação Única", slug="nacao-unica")
+        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel="admin")
+        Membro.objects.create(usuario=self.membro, torcida=self.torcida, papel="membro")
+
+    def test_admin_cria_pelotao_e_membro_pode_ser_vinculado(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            f"/api/torcidas/{self.torcida.pk}/pelotoes/",
+            {"nome": "Pelotão Norte", "slug": "pelotao-norte", "descricao": "Setor norte"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        pelotao_id = response.data["id"]
+        member = Membro.objects.get(usuario=self.membro, torcida=self.torcida)
+        self.client.patch(
+            f"/api/torcidas/{self.torcida.pk}/membros/{member.pk}/",
+            {"pelotao_id": pelotao_id},
+            format="json",
+        )
+        member.refresh_from_db()
+        self.assertEqual(member.pelotao_id, pelotao_id)
+
+    def test_membro_comum_nao_pode_criar_pelotao(self):
+        self.client.force_authenticate(user=self.membro)
+        response = self.client.post(
+            f"/api/torcidas/{self.torcida.pk}/pelotoes/",
+            {"nome": "Pelotão Sul", "slug": "pelotao-sul"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_convite_pode_ser_limitado_a_pelotao(self):
+        self.client.force_authenticate(user=self.admin)
+        pelotao = __import__("torcidas.models", fromlist=["Pelotao"]).Pelotao.objects.create(
+            torcida=self.torcida, nome="Pelotão Leste", slug="pelotao-leste"
+        )
+        response = self.client.post(
+            f"/api/torcidas/{self.torcida.pk}/convites/",
+            {"pelotao_id": pelotao.pk, "limite_usos": 1},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        token = response.data["token"]
+        convidado = User.objects.create_user(username="convidado_pelotao", password="Senha-Forte-2026!")
+        self.client.force_authenticate(user=convidado)
+        accepted = self.client.post("/api/torcidas/convites/aceitar/", {"token": token}, format="json")
+        self.assertEqual(accepted.status_code, 201)
+        self.assertEqual(Membro.objects.get(usuario=convidado, torcida=self.torcida).pelotao_id, pelotao.pk)
