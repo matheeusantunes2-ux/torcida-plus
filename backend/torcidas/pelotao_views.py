@@ -41,6 +41,12 @@ class ListaCriarPelotaoView(APIView):
     def get(self, request, torcida_id):
         torcida = obter_torcida_membro(request, torcida_id)
         qs = Pelotao.objects.filter(torcida=torcida, ativo=True).prefetch_related("membros")
+        if not is_platform_admin(request.user):
+            atual = Membro.objects.filter(torcida=torcida, usuario=request.user).first()
+            if atual and atual.papel == Membro.Papel.LIDER_PELOTAO:
+                if atual.pelotao_id is None:
+                    raise PermissionDenied("Líder sem pelotão ativo não pode consultar a gestão.")
+                qs = qs.filter(pk=atual.pelotao_id)
         return Response(PelotaoSerializer(qs, many=True).data)
 
     def post(self, request, torcida_id):
@@ -57,6 +63,10 @@ class DetalhePelotaoView(APIView):
 
     def get_obj(self, request, torcida_id, pelotao_id):
         torcida = obter_torcida_membro(request, torcida_id)
+        if not is_platform_admin(request.user):
+            atual = Membro.objects.filter(torcida=torcida, usuario=request.user).first()
+            if atual and atual.papel == Membro.Papel.LIDER_PELOTAO and atual.pelotao_id != pelotao_id:
+                raise PermissionDenied("Você só pode acessar seu próprio pelotão.")
         return get_object_or_404(Pelotao, pk=pelotao_id, torcida=torcida)
 
     def get(self, request, torcida_id, pelotao_id):
