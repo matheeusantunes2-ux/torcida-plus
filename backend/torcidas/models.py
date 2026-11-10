@@ -98,3 +98,20 @@ class ConviteTorcida(models.Model):
             and self.expira_em > timezone.now()
             and self.usos < self.limite_usos
         )
+
+
+class AtividadePelotao(models.Model):
+    torcida = models.ForeignKey(Torcida, on_delete=models.CASCADE, related_name="atividades_pelotoes")
+    pelotao = models.ForeignKey(Pelotao, on_delete=models.SET_NULL, null=True, blank=True, related_name="atividades")
+    ator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="atividades_pelotoes")
+    acao = models.CharField(max_length=48)
+    descricao = models.CharField(max_length=300)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criado_em", "-id"]
+        indexes = [models.Index(fields=["torcida", "criado_em"], name="atividade_tor_data_idx"),
+                   models.Index(fields=["pelotao", "criado_em"], name="atividade_pel_data_idx")]
+
+    def __str__(self):
+        return f"{self.acao}: {self.descricao}"
