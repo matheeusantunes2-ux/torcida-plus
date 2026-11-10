@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Torcida, Membro, ConviteTorcida
+from .models import Torcida, Membro, ConviteTorcida, AtividadePelotao
 
 
 class MembroInline(admin.TabularInline):
@@ -28,3 +28,17 @@ class ConviteTorcidaAdmin(admin.ModelAdmin):
     list_filter = ("papel", "revogado_em")
     search_fields = ("torcida__nome", "criado_por__username")
     readonly_fields = ("token_hash", "criado_em")
+
+
+@admin.register(AtividadePelotao)
+class AtividadePelotaoAdmin(admin.ModelAdmin):
+    list_display = ("torcida", "pelotao", "acao", "ator", "criado_em")
+    list_filter = ("acao", "torcida", "pelotao")
+    search_fields = ("descricao", "ator__username", "torcida__nome")
+    readonly_fields = ("torcida", "pelotao", "ator", "acao", "descricao", "criado_em")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
