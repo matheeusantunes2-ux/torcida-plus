@@ -111,3 +111,51 @@ class PlatformAdminChatAccessTests(APITestCase):
         self.assertEqual(mensagens.status_code, 200)
         self.assertEqual(len(mensagens.data), 1)
         self.assertEqual(mensagens.data[0]["conteudo"], "Mensagem para moderação")
+
+
+class PelotaoChatScopeTests(APITestCase):
+    def setUp(self):
+        from torcidas.models import Pelotao
+        self.admin = User.objects.create_user(username="pelotao_chat_admin", password="Senha-Forte-2026!")
+        self.integrante = User.objects.create_user(username="pelotao_chat_member", password="Senha-Forte-2026!")
+        self.fora = User.objects.create_user(username="pelotao_chat_outside", password="Senha-Forte-2026!")
+        self.torcida = Torcida.objects.create(nome="Torcida Pelotão Chat", slug="torcida-pelotao-chat")
+        self.pelotao = Pelotao.objects.create(torcida=self.torcida, nome="Norte", slug="norte")
+        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel="admin")
+        Membro.objects.create(usuario=self.integrante, torcida=self.torcida, pelotao=self.pelotao)
+        Membro.objects.create(usuario=self.fora, torcida=self.torcida, papel="membro")
+
+    def test_integrante_cria_conversa_restrita_ao_pelotao(self):
+        self.client.force_authenticate(self.integrante)
+        response = self.client.post("/api/chat/conversas/", {
+            "torcida": self.torcida.pk,
+            "pelotao": self.pelotao.pk,
+            "tipo": "grupo",
+            "nome": "Resenha Norte",
+            "participantes": [self.admin.pk],
+        }, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("participantes", response.data)
+
+    def test_nao_permite_adicionar_membro_de_outro_pelotao(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post("/api/chat/conversas/", {
+            "torcida": self.torcida.pk,
+            "pelotao": self.pelotao.pk,
+            "tipo": "grupo",
+            "nome": "Grupo Norte",
+            "participantes": [self.integrante.pk, self.fora.pk],
+        }, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Conversa.objects.count(), 0)
+
+    def test_conversa_de_pelotao_e_criada_com_membros_validos(self):
+        self.client.force_authenticate(self.integrante)
+        response = self.client.post("/api/chat/conversas/", {
+            "torcida": self.torcida.pk,
+            "pelotao": self.pelotao.pk,
+            "tipo": "privada",
+            "participantes": [self.integrante.pk],
+        }, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["pelotao"], self.pelotao.pk)
