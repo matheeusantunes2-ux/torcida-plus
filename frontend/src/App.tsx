@@ -109,14 +109,14 @@ return <main className="app-shell"><header className="app-header"><button classN
 {tab==="Mais"&&<div style={{display:"grid",gap:14}}>
 {moreSection==="menu"?<div className="quick-grid">
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("perfil")}><UserCircle/><b>Meu perfil</b><small>Dados e conta</small></button>
-<button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("torcidas")}><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button>
+<button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("pelotoes")}><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("configuracoes")}><Settings/><b>Configurações</b><small>Privacidade e segurança</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("admin")}><ShieldCheck/><b>Painel administrativo</b><small>Gestão da plataforma</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("moderacao")}><ShieldCheck/><b>Moderação</b><small>Aprovação de publicações</small></button>
 </div>:<>
 <button className="outline-btn" style={{justifySelf:"start"}} onClick={()=>setMoreSection("menu")}><ArrowLeft/> Voltar</button>
 {moreSection==="perfil"&&<section className="content-card"><h2><UserCircle/> Meu perfil</h2><p>Sua sessão está ativa no TORCIDA+.</p><p>Para proteger sua conta, não compartilhe sua senha ou códigos de acesso.</p><button className="outline-btn" onClick={()=>setMoreSection("configuracoes")}>Ir para segurança da conta</button></section>}
-{moreSection==="torcidas"&&<TorcidasPanel tokens={tokens} api={API}/>}
+{moreSection==="pelotoes"&&<TorcidasPanel tokens={tokens} api={API}/>}
 {moreSection==="configuracoes"&&<section className="content-card"><h2><Settings/> Configurações e segurança</h2><p>Gerencie o acesso à sua conta neste dispositivo.</p><div style={{display:"grid",gap:10,marginTop:14}}><div><b>Sessão</b><small style={{display:"block",opacity:.75}}>Sua conta está conectada neste aparelho.</small></div><button className="outline-btn" onClick={logout}><LogOut/> Encerrar sessão neste dispositivo</button></div></section>}
 {moreSection==="admin"&&<PlatformAdminPanel tokens={tokens} api={API}/>}
 {moreSection==="moderacao"&&<ModeracaoPanel tokens={tokens} api={API}/>}
