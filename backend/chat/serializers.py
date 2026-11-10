@@ -43,7 +43,7 @@ class ConversaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Conversa
-        fields = ["id", "torcida", "tipo", "nome", "participantes", "ultima_mensagem", "criada_em", "atualizada_em"]
+        fields = ["id", "torcida", "pelotao", "tipo", "nome", "participantes", "ultima_mensagem", "criada_em", "atualizada_em"]
         read_only_fields = ["id", "participantes", "ultima_mensagem", "criada_em", "atualizada_em"]
 
     def get_participantes(self, obj):
@@ -65,6 +65,14 @@ class ConversaSerializer(serializers.ModelSerializer):
         torcida = attrs["torcida"]
         if not Membro.objects.filter(torcida=torcida, usuario=request.user).exists():
             raise serializers.ValidationError({"torcida": "Você não participa desta torcida."})
+        pelotao = attrs.get("pelotao")
+        if pelotao and pelotao.torcida_id != torcida.pk:
+            raise serializers.ValidationError({"pelotao": "O pelotão não pertence a esta torcida."})
+        if pelotao:
+            membership = Membro.objects.filter(torcida=torcida, usuario=request.user).first()
+            from accounts.permissions import is_platform_admin
+            if not is_platform_admin(request.user) and (not membership or membership.pelotao_id != pelotao.pk):
+                raise serializers.ValidationError({"pelotao": "Você precisa estar vinculado a este pelotão para criar conversas nele."})
         tipo = attrs.get("tipo")
         if tipo not in (Conversa.Tipo.PRIVADA, Conversa.Tipo.GRUPO):
             raise serializers.ValidationError({"tipo": "Tipo de conversa inválido."})
@@ -87,6 +95,9 @@ class ConversaSerializer(serializers.ModelSerializer):
         membros = set(Membro.objects.filter(torcida=validated_data["torcida"], usuario_id__in=ids).values_list("usuario_id", flat=True))
         if membros != ids:
             raise serializers.ValidationError({"participantes": "Todos os participantes devem pertencer à torcida."})
+        pelotao = validated_data.get("pelotao")
+        if pelotao and not Membro.objects.filter(torcida=validated_data["torcida"], usuario_id__in=ids, pelotao=pelotao).count() == len(ids):
+            raise serializers.ValidationError({"participantes": "Todos os participantes precisam pertencer ao pelotão selecionado."})
         if validated_data["tipo"] == Conversa.Tipo.PRIVADA and len(ids) != 2:
             raise serializers.ValidationError({"participantes": "Uma conversa privada deve ter exatamente duas pessoas."})
         if validated_data["tipo"] == Conversa.Tipo.GRUPO and len(ids) < 2:
