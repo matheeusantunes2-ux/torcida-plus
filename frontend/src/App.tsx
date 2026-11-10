@@ -178,9 +178,11 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
  const [inviteTarget,setInviteTarget]=useState<number|null>(null);
  const [selectedTorcida,setSelectedTorcida]=useState<number|null>(null);
  const [members,setMembers]=useState<any[]>([]);
+ const [pelotoes,setPelotoes]=useState<any[]>([]);
+ const [novoPelotao,setNovoPelotao]=useState("");
  const [membersLoading,setMembersLoading]=useState(false);
  const [memberBusy,setMemberBusy]=useState<number|null>(null);
- async function showMembers(id:number){setSelectedTorcida(id);setMembersLoading(true);setError("");try{const d=await request("/api/torcidas/"+id+"/membros/");setMembers(Array.isArray(d)?d:(d.results||[]));}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar membros.");}finally{setMembersLoading(false);}}
+ async function showMembers(id:number){setSelectedTorcida(id);setMembersLoading(true);setError("");try{const [d,p]=await Promise.all([request("/api/torcidas/"+id+"/membros/"),request("/api/torcidas/"+id+"/pelotoes/")]);setMembers(Array.isArray(d)?d:(d.results||[]));setPelotoes(Array.isArray(p)?p:(p.results||[]));}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar pelotões e integrantes.");}finally{setMembersLoading(false);}}
  async function changeMember(id:number,papel:string){setMemberBusy(id);setError("");try{const d=await request("/api/torcidas/"+selectedTorcida+"/membros/"+id+"/","PATCH",{papel});setMembers(v=>v.map(m=>m.id===id?d:m));setNotice("Permissão do integrante atualizada.");}catch(e){setError(e instanceof Error?e.message:"Falha ao atualizar integrante.");}finally{setMemberBusy(null);}}
  async function removeMember(id:number){if(!window.confirm("Deseja realmente remover este integrante da torcida?"))return;setMemberBusy(id);setError("");try{await request("/api/torcidas/"+selectedTorcida+"/membros/"+id+"/","DELETE");setMembers(v=>v.filter(m=>m.id!==id));setNotice("Integrante removido.");}catch(e){setError(e instanceof Error?e.message:"Falha ao remover integrante.");}finally{setMemberBusy(null);}}
  async function request(path:string,method="GET",body?:any){
@@ -192,6 +194,8 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
  async function load(){setLoading(true);setError("");try{const d=await request("/api/torcidas/");setItems(Array.isArray(d)?d:(d.results||[]));}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar torcidas.");}finally{setLoading(false);}}
  useEffect(()=>{load()},[tokens.access]);
  async function create(e:FormEvent){e.preventDefault();setError("");setNotice("");try{const clean=slug.trim().toLowerCase().replace(/[^a-z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");const d=await request("/api/torcidas/","POST",{nome:nome.trim(),slug:clean,cor_principal:"#202020"});setItems(v=>[d,...v]);setNotice("Pelotão criado! Você foi cadastrado como administrador.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar pelotão.");}}
+ async function createPelotao(e:FormEvent){e.preventDefault();if(selectedTorcida===null||!novoPelotao.trim())return;setError("");setNotice("");try{const slug=novoPelotao.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");const p=await request("/api/torcidas/"+selectedTorcida+"/pelotoes/","POST",{nome:novoPelotao.trim(),slug});setPelotoes(v=>[...v,p]);setNovoPelotao("");setNotice("Pelotão criado com sucesso.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar pelotão.");}}
+ async function assignPelotao(m:any,value:string){if(selectedTorcida===null)return;setMemberBusy(m.id);setError("");try{const d=await request("/api/torcidas/"+selectedTorcida+"/membros/"+m.id+"/","PATCH",{papel:m.papel,pelotao_id:value||null});setMembers(v=>v.map(x=>x.id===m.id?d:x));setNotice("Integrante vinculado ao pelotão.");}catch(e){setError(e instanceof Error?e.message:"Falha ao vincular integrante.");}finally{setMemberBusy(null);}}
  async function createInvite(id:number){setError("");setNotice("");try{const d=await request("/api/torcidas/"+id+"/convites/","POST",{validade_dias:7,limite_usos:20,papel:"membro"});setCreatedToken(d.token);setInviteTarget(id);setNotice("Convite do pelotão criado. Compartilhe o código com os integrantes.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar convite.");}}
  async function acceptInvite(e:FormEvent){e.preventDefault();setError("");setNotice("");try{await request("/api/torcidas/convites/aceitar/","POST",{token:invite.trim()});setInvite("");setNotice("Você entrou no pelotão pelo convite.");await load();}catch(e){setError(e instanceof Error?e.message:"Convite inválido.");}}
  return <div className="content-card" style={{gridColumn:"1 / -1"}}>
@@ -211,10 +215,15 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
   </div>
   {selectedTorcida!==null&&<section style={{marginTop:18,padding:14,border:"1px solid #444",borderRadius:12}}>
    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}><h3>Integrantes do pelotão #{selectedTorcida}</h3><button className="outline-btn" onClick={()=>setSelectedTorcida(null)}>Fechar</button></div>
+   <form onSubmit={createPelotao} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,margin:"14px 0"}}>
+    <input className="dark-input" value={novoPelotao} onChange={e=>setNovoPelotao(e.target.value)} placeholder="Nome do novo pelotão" maxLength={120} required/>
+    <button className="primary-btn" disabled={!novoPelotao.trim()||membersLoading}>Criar pelotão</button>
+   </form>
+   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>{pelotoes.map(p=><span key={p.id} className="notice">{p.nome} · {p.total_integrantes||0} integrantes</span>)}</div>
    {membersLoading&&<p>Carregando integrantes...</p>}
    {!membersLoading&&members.length===0&&<p>Nenhum integrante encontrado.</p>}
    {members.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #333",flexWrap:"wrap"}}>
-    <div><b>@{m.username}</b><small style={{display:"block",opacity:.7}}>{m.papel==="admin"?"Administrador":m.papel==="moderador"?"Moderador":"Membro"}</small></div>
+    <div style={{minWidth:170,flex:"1 1 190px"}}><b>@{m.username}</b><small style={{display:"block",opacity:.7}}>{m.papel==="admin"?"Administrador":m.papel==="moderador"?"Moderador":"Membro"}</small><select className="dark-input" value={m.pelotao||""} disabled={memberBusy===m.id||m.papel==="admin"} onChange={e=>assignPelotao(m,e.target.value)} style={{marginTop:6}}><option value="">Sem pelotão</option>{pelotoes.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}</select></div>
     {m.papel!=="admin"&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><button className="outline-btn" disabled={memberBusy===m.id} onClick={()=>changeMember(m.id,m.papel==="moderador"?"membro":"moderador")}>{m.papel==="moderador"?"Rebaixar":"Promover"}</button><button className="outline-btn" disabled={memberBusy===m.id} onClick={()=>removeMember(m.id)}>Remover</button></div>}
    </div>)}
   </section>}
