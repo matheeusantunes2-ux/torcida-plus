@@ -14,6 +14,22 @@ class Torcida(models.Model):
         return self.nome
 
 
+class Pelotao(models.Model):
+    torcida = models.ForeignKey(Torcida, on_delete=models.CASCADE, related_name="pelotoes")
+    nome = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=140)
+    descricao = models.CharField(max_length=300, blank=True)
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nome", "id"]
+        constraints = [models.UniqueConstraint(fields=["torcida", "slug"], name="pelotao_slug_unico_por_torcida")]
+
+    def __str__(self):
+        return f"{self.nome} - {self.torcida.nome}"
+
+
 class Membro(models.Model):
     class Papel(models.TextChoices):
         ADMIN = "admin", "Administrador"
@@ -35,6 +51,7 @@ class Membro(models.Model):
         choices=Papel.choices,
         default=Papel.MEMBRO,
     )
+    pelotao = models.ForeignKey(Pelotao, on_delete=models.SET_NULL, null=True, blank=True, related_name="membros")
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -66,6 +83,7 @@ class ConviteTorcida(models.Model):
     limite_usos = models.PositiveIntegerField(default=1)
     usos = models.PositiveIntegerField(default=0)
     revogado_em = models.DateTimeField(null=True, blank=True)
+    pelotao = models.ForeignKey(Pelotao, on_delete=models.SET_NULL, null=True, blank=True, related_name="convites")
 
     class Meta:
         indexes = [
