@@ -103,3 +103,17 @@
 .voice-call-security{color:#85858f;font-size:10px;margin-top:16px}
 .voice-call-error{color:#ff9da9!important;background:#4b1720;padding:8px 12px;border-radius:8px}
 @media(max-width:480px){.chat-head-actions{gap:4px}.chat-head-actions .chat-call{padding:8px 9px;font-size:10px}.voice-call-stage{padding:12px}.voice-call-panel{min-height:390px;padding:24px 15px}}
+
+.chat-call-meeting{background:#24354a!important;border-color:#3d6389!important}
+.meeting-presentation-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 15px;background:#151c27;border-bottom:1px solid #ffffff20}
+.meeting-presentation-toolbar>div:first-child{display:flex;flex-direction:column;gap:4px;min-width:180px;flex:1}
+.meeting-presentation-toolbar b{font-size:12px;color:#fff}
+.meeting-presentation-toolbar small,.meeting-presentation-toolbar>p{font-size:10px;line-height:1.5;color:#aeb8c7;margin:0}
+.meeting-presentation-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.meeting-presentation-actions input{display:none}
+.meeting-file-button,.meeting-share,.meeting-stop-share{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:8px;border:1px solid #ffffff25;color:#fff;font-size:10px;font-weight:700;cursor:pointer;background:#29394d}
+.meeting-file-button svg,.meeting-share svg,.meeting-stop-share svg{width:15px;height:15px}
+.meeting-share{background:#174d35;border-color:#2c8054}
+.meeting-stop-share{background:#6d1d2a;border-color:#a73549}
+.meeting-presentation-toolbar>p{width:100%;flex-basis:100%}
+@media(max-width:700px){.chat-head-actions{flex-wrap:wrap}.chat-head-actions .chat-call-meeting{padding:7px 8px;font-size:9px}.meeting-presentation-toolbar{align-items:stretch}.meeting-presentation-actions>*{flex:1}.meeting-file-button,.meeting-share,.meeting-stop-share{min-height:40px}}
