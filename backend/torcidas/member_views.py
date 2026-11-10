@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from accounts.permissions import is_platform_admin
-from .models import Torcida, Membro, ConviteTorcida
+from .models import Torcida, Membro, ConviteTorcida, Pelotao
 from community.models import Notificacao
 from .member_serializers import MembroSerializer
 
@@ -41,6 +41,10 @@ class CriarConviteView(APIView):
         papel = request.data.get("papel", Membro.Papel.MEMBRO)
         if papel not in (Membro.Papel.MEMBRO, Membro.Papel.MODERADOR):
             raise ValidationError({"papel": "Use 'membro' ou 'moderador'."})
+        pelotao = None
+        pelotao_id = request.data.get("pelotao_id")
+        if pelotao_id not in (None, ""):
+            pelotao = get_object_or_404(Pelotao, pk=pelotao_id, torcida=torcida, ativo=True)
         try:
             dias = int(request.data.get("validade_dias", 7)); limite = int(request.data.get("limite_usos", 1))
         except (TypeError, ValueError):
@@ -48,8 +52,8 @@ class CriarConviteView(APIView):
         if not 1 <= dias <= 30 or not 1 <= limite <= 100:
             raise ValidationError("Validade: 1–30 dias; limite de usos: 1–100.")
         token = secrets.token_urlsafe(32)
-        convite = ConviteTorcida.objects.create(torcida=torcida, criado_por=request.user, token_hash=hashlib.sha256(token.encode()).hexdigest(), papel=papel, expira_em=timezone.now()+timedelta(days=dias), limite_usos=limite)
-        return Response({"id":convite.pk,"token":token,"torcida":torcida.nome,"papel":convite.papel,"expira_em":convite.expira_em,"limite_usos":convite.limite_usos},status=status.HTTP_201_CREATED)
+        convite = ConviteTorcida.objects.create(torcida=torcida, criado_por=request.user, token_hash=hashlib.sha256(token.encode()).hexdigest(), papel=papel, pelotao=pelotao, expira_em=timezone.now()+timedelta(days=dias), limite_usos=limite)
+        return Response({"id":convite.pk,"token":token,"torcida":torcida.nome,"papel":convite.papel,"expira_em":convite.expira_em,"limite_usos":convite.limite_usos,"pelotao":convite.pelotao.nome if convite.pelotao else None},status=status.HTTP_201_CREATED)
 
 class AceitarConviteView(APIView):
     permission_classes = [IsAuthenticated]
@@ -61,7 +65,7 @@ class AceitarConviteView(APIView):
                 convite=ConviteTorcida.objects.select_for_update().get(token_hash=hashlib.sha256(token.encode()).hexdigest())
                 if not convite.ativo: raise ValidationError({"token":"Convite expirado, revogado ou esgotado."})
                 if Membro.objects.filter(torcida=convite.torcida,usuario=request.user).exists(): raise ValidationError("Você já participa desta torcida.")
-                membro=Membro.objects.create(torcida=convite.torcida,usuario=request.user,papel=convite.papel)
+                membro=Membro.objects.create(torcida=convite.torcida,usuario=request.user,papel=convite.papel,pelotao=convite.pelotao)
                 convite.usos+=1; convite.save(update_fields=["usos"])
                 if convite.criado_por_id != request.user.id:
                     Notificacao.objects.create(destinatario=convite.criado_por,ator=request.user,tipo=Notificacao.Tipo.CONVITE,texto=f"{request.user.username} entrou na torcida {convite.torcida.nome}.",referencia=f"torcida:{convite.torcida_id}")
@@ -87,7 +91,11 @@ class DetalheMembroView(APIView):
         if membro.papel == Membro.Papel.ADMIN: raise ValidationError("A transferência de administração exige procedimento específico.")
         papel=request.data.get("papel")
         if papel not in (Membro.Papel.MEMBRO,Membro.Papel.MODERADOR): raise ValidationError({"papel":"Use membro ou moderador."})
-        membro.papel=papel; membro.save(update_fields=["papel"]); return Response(MembroSerializer(membro).data)
+        membro.papel=papel
+        pelotao_id=request.data.get("pelotao_id", ...)
+        if pelotao_id is not ...:
+            membro.pelotao = None if pelotao_id in (None, "") else get_object_or_404(Pelotao, pk=pelotao_id, torcida=torcida, ativo=True)
+        membro.save(update_fields=["papel", "pelotao"]); return Response(MembroSerializer(membro).data)
     def delete(self,request,torcida_id,membro_id):
         torcida=obter_torcida(request,torcida_id); exigir_admin(request,torcida); membro=self.obter_membro(torcida,membro_id)
         if membro.papel == Membro.Papel.ADMIN: raise ValidationError("Não é permitido remover um administrador por este endpoint.")
