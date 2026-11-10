@@ -68,7 +68,7 @@ class AceitarConviteView(APIView):
                 membro=Membro.objects.create(torcida=convite.torcida,usuario=request.user,papel=convite.papel,pelotao=convite.pelotao)
                 convite.usos+=1; convite.save(update_fields=["usos"])
                 if convite.criado_por_id != request.user.id:
-                    Notificacao.objects.create(destinatario=convite.criado_por,ator=request.user,tipo=Notificacao.Tipo.CONVITE,texto=f"{request.user.username} entrou na torcida {convite.torcida.nome}.",referencia=f"torcida:{convite.torcida_id}")
+                    Notificacao.objects.create(destinatario=convite.criado_por,ator=request.user,tipo=Notificacao.Tipo.CONVITE,texto=f"{request.user.username} entrou no pelotão {convite.pelotao.nome}." if convite.pelotao else f"{request.user.username} entrou na torcida {convite.torcida.nome}.",referencia=f"torcida:{convite.torcida_id}")
         except ConviteTorcida.DoesNotExist: raise ValidationError({"token":"Convite inválido."})
         except IntegrityError: raise ValidationError("Não foi possível aceitar este convite.")
         return Response({"mensagem":"Você entrou na torcida.","membro":MembroSerializer(membro).data},status=status.HTTP_201_CREATED)
@@ -89,7 +89,7 @@ class DetalheMembroView(APIView):
     def patch(self,request,torcida_id,membro_id):
         torcida=obter_torcida(request,torcida_id); exigir_admin(request,torcida); membro=self.obter_membro(torcida,membro_id)
         if membro.papel == Membro.Papel.ADMIN: raise ValidationError("A transferência de administração exige procedimento específico.")
-        papel=request.data.get("papel")
+        papel=request.data.get("papel", membro.papel)
         if papel not in (Membro.Papel.MEMBRO,Membro.Papel.MODERADOR): raise ValidationError({"papel":"Use membro ou moderador."})
         membro.papel=papel
         pelotao_id=request.data.get("pelotao_id", ...)
