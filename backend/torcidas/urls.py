@@ -9,12 +9,15 @@ from .member_views import (
     AceitarConviteView,
     RevogarConviteView,
 )
+from .pelotao_views import ListaCriarPelotaoView, DetalhePelotaoView
 
 router = DefaultRouter()
 router.register("", TorcidaViewSet, basename="torcida")
 
 urlpatterns = [
     path("convites/aceitar/", AceitarConviteView.as_view(), name="aceitar-convite"),
+    path("<int:torcida_id>/pelotoes/", ListaCriarPelotaoView.as_view(), name="lista-criar-pelotoes"),
+    path("<int:torcida_id>/pelotoes/<int:pelotao_id>/", DetalhePelotaoView.as_view(), name="detalhe-pelotao"),
     path("<int:torcida_id>/convites/", CriarConviteView.as_view(), name="criar-convite"),
     path(
         "<int:torcida_id>/convites/<int:convite_id>/revogar/",
