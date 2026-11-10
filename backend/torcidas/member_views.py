@@ -150,7 +150,8 @@ class DetalheMembroView(APIView):
             acao = "cargo_alterado"
         descricao = f"Vínculo de {membro.usuario.username} atualizado: {papel_anterior} para {papel}; pelotão {pelotao_anterior.nome if pelotao_anterior else 'nenhum'} para {novo_pelotao.nome if novo_pelotao else 'nenhum'}."
         registrar_atividade(torcida, request.user, acao, descricao, novo_pelotao or pelotao_anterior)
-        return Response(MembroSerializer(membro).data
+        return Response(MembroSerializer(membro).data)
+
     def delete(self,request,torcida_id,membro_id):
         torcida=obter_torcida(request,torcida_id)
         gestor=obter_gestor(request,torcida)
