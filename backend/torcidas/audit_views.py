@@ -37,6 +37,8 @@ class ListaAtividadesPelotaoView(APIView):
             return get_object_or_404(qs_torcida.distinct(), pk=torcida_id)
         atividades = AtividadePelotao.objects.filter(torcida=torcida).select_related("ator", "pelotao")
         atual = Membro.objects.filter(torcida=torcida, usuario=request.user).first()
+        if not is_platform_admin(request.user) and (atual is None or atual.papel not in (Membro.Papel.ADMIN, Membro.Papel.LIDER_PELOTAO)):
+            raise PermissionDenied("Histórico disponível somente para a administração e líderes de pelotão.")
         if not is_platform_admin(request.user) and atual and atual.papel == Membro.Papel.LIDER_PELOTAO:
             if not atual.pelotao_id:
                 raise PermissionDenied("Líder sem pelotão não pode consultar atividades.")
