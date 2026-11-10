@@ -68,7 +68,7 @@ export default function App(){
 const [tokens,setTokens]=useState<Tokens>(()=>({access:sessionStorage.getItem("torcida_access")||"",refresh:sessionStorage.getItem("torcida_refresh")||""}));
 const [posts,setPosts]=useState<Post[]>([]),[newPost,setNewPost]=useState(""),[postImage,setPostImage]=useState<File|null>(null),[torcidaId,setTorcidaId]=useState(""),[publishing,setPublishing]=useState(false),[feedLoading,setFeedLoading]=useState(false),[feedError,setFeedError]=useState(""),[feedNotice,setFeedNotice]=useState(""),[comments,setComments]=useState<Record<number,Comment[]>>({}),[openComments,setOpenComments]=useState<number|null>(null),[commentDrafts,setCommentDrafts]=useState<Record<number,string>>({}),[commentBusy,setCommentBusy]=useState<number|null>(null),[notices,setNotices]=useState<Notice[]>([]),[unread,setUnread]=useState(0),[noticeLoading,setNoticeLoading]=useState(false),[noticeError,setNoticeError]=useState("");
 const [mode,setMode]=useState<"login"|"register">("login"),[username,setUsername]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[tab,setTab]=useState<Tab>(()=>new URLSearchParams(window.location.search).has("store_payment")?"Loja":"Início"),[room,setRoom]=useState<Room|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
-const [moreSection,setMoreSection]=useState<"menu"|"perfil"|"pelotoes"|"configuracoes"|"admin"|"moderacao">("menu");
+const [moreSection,setMoreSection]=useState<"menu"|"perfil"|"pelotoes"|"lider"|"configuracoes"|"admin"|"moderacao">("menu");
 const [menuOpen,setMenuOpen]=useState(false);
 function save(v:Tokens){setTokens(v);v.access?sessionStorage.setItem("torcida_access",v.access):sessionStorage.removeItem("torcida_access");v.refresh?sessionStorage.setItem("torcida_refresh",v.refresh):sessionStorage.removeItem("torcida_refresh")}
 async function result(r:Response){const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||Object.values(d).flat().join(" ")||"Não foi possível concluir.");return d}
@@ -109,14 +109,14 @@ return <main className="app-shell"><header className="app-header"><button classN
 {tab==="Mais"&&<div style={{display:"grid",gap:14}}>
 {moreSection==="menu"?<div className="quick-grid">
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("perfil")}><UserCircle/><b>Meu perfil</b><small>Dados e conta</small></button>
-<button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("pelotoes")}><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button>
+<button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("pelotoes")}><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button>\n<button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("lider") }><ShieldCheck/><b>Painel do pelotão</b><small>Integrantes e convites</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("configuracoes")}><Settings/><b>Configurações</b><small>Privacidade e segurança</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("admin")}><ShieldCheck/><b>Painel administrativo</b><small>Gestão da plataforma</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("moderacao")}><ShieldCheck/><b>Moderação</b><small>Aprovação de publicações</small></button>
 </div>:<>
 <button className="outline-btn" style={{justifySelf:"start"}} onClick={()=>setMoreSection("menu")}><ArrowLeft/> Voltar</button>
 {moreSection==="perfil"&&<section className="content-card"><h2><UserCircle/> Meu perfil</h2><p>Sua sessão está ativa no TORCIDA+.</p><p>Para proteger sua conta, não compartilhe sua senha ou códigos de acesso.</p><button className="outline-btn" onClick={()=>setMoreSection("configuracoes")}>Ir para segurança da conta</button></section>}
-{moreSection==="pelotoes"&&<TorcidasPanel tokens={tokens} api={API}/>}
+{moreSection==="pelotoes"&&<TorcidasPanel tokens={tokens} api={API}/>}\n{moreSection==="lider"&&<LiderPelotaoPanel tokens={tokens} api={API}/>}
 {moreSection==="configuracoes"&&<section className="content-card"><h2><Settings/> Configurações e segurança</h2><p>Gerencie o acesso à sua conta neste dispositivo.</p><div style={{display:"grid",gap:10,marginTop:14}}><div><b>Sessão</b><small style={{display:"block",opacity:.75}}>Sua conta está conectada neste aparelho.</small></div><button className="outline-btn" onClick={logout}><LogOut/> Encerrar sessão neste dispositivo</button></div></section>}
 {moreSection==="admin"&&<PlatformAdminPanel tokens={tokens} api={API}/>}
 {moreSection==="moderacao"&&<ModeracaoPanel tokens={tokens} api={API}/>}
@@ -232,6 +232,52 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
  </div>;
 }
 
+
+function LiderPelotaoPanel({tokens,api}:{tokens:Tokens;api:string}){
+ const [torcidas,setTorcidas]=useState<any[]>([]),[pelotoes,setPelotoes]=useState<any[]>([]),[members,setMembers]=useState<any[]>([]);
+ const [selected,setSelected]=useState<number|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[invite,setInvite]=useState("");
+ async function request(path:string,method="GET",body?:any){
+  const r=await fetch(api+path,{method,headers:{"Content-Type":"application/json",Authorization:"Bearer "+tokens.access},...(body?{body:JSON.stringify(body)}:{})});
+  const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.detail||Object.values(d).flat().join(" ")||"Não foi possível concluir.");(e as any).status=r.status;throw e;}return d;
+ }
+ async function load(){
+  setLoading(true);setError("");
+  try{
+   const d=await request("/api/torcidas/");const list=Array.isArray(d)?d:(d.results||[]);setTorcidas(list);
+   if(!list.length){setPelotoes([]);setMembers([]);setSelected(null);return;}
+   const id=selected&&list.some((t:any)=>t.id===selected)?selected:list[0].id;setSelected(id);
+   const [p,m]=await Promise.all([request("/api/torcidas/"+id+"/pelotoes/"),request("/api/torcidas/"+id+"/membros/")]);
+   setPelotoes(Array.isArray(p)?p:(p.results||[]));setMembers(Array.isArray(m)?m:(m.results||[]));
+  }catch(e){setError(e instanceof Error?e.message:"Falha ao carregar o painel.");}
+  finally{setLoading(false);}
+ }
+ useEffect(()=>{load()},[tokens.access]);
+ async function selectTorcida(id:number){
+  setSelected(id);setLoading(true);setError("");
+  try{const [p,m]=await Promise.all([request("/api/torcidas/"+id+"/pelotoes/"),request("/api/torcidas/"+id+"/membros/")]);setPelotoes(Array.isArray(p)?p:(p.results||[]));setMembers(Array.isArray(m)?m:(m.results||[]));}
+  catch(e){setError(e instanceof Error?e.message:"Não foi possível abrir este pelotão.");}
+  finally{setLoading(false);}
+ }
+ async function createInvite(e:FormEvent){
+  e.preventDefault();if(!selected||!invite)return;setError("");setNotice("");
+  try{const d=await request("/api/torcidas/"+selected+"/convites/","POST",{papel:"membro",pelotao_id:Number(invite),validade_dias:7,limite_usos:20});setNotice("Convite criado. Compartilhe o código abaixo com novos integrantes.");setInvite("");(window as any).__torcidaInvite=d.token;setCreatedToken(d.token);}
+  catch(e){setError(e instanceof Error?e.message:"Não foi possível criar o convite.");}
+ }
+ const [createdToken,setCreatedToken]=useState("");
+ const total=members.length;
+ return <section className="content-card" style={{gridColumn:"1 / -1"}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div><h2><Users/> Painel do pelotão</h2><p>Gestão de integrantes e convites conforme suas permissões.</p></div><button className="outline-btn" onClick={load} disabled={loading}>{loading?"Atualizando...":"Atualizar"}</button></div>
+  {torcidas.length>1&&<label>Torcida <select className="dark-input" value={selected||""} onChange={e=>selectTorcida(Number(e.target.value))}>{torcidas.map(t=><option key={t.id} value={t.id}>{t.nome}</option>)}</select></label>}
+  {loading&&<p>Carregando dados do pelotão...</p>}
+  {!loading&&selected&&<><div className="quick-grid" style={{marginTop:14}}><div className="content-card"><b style={{fontSize:26}}>{pelotoes.length}</b><small style={{display:"block"}}>Pelotões visíveis</small></div><div className="content-card"><b style={{fontSize:26}}>{total}</b><small style={{display:"block"}}>Integrantes visíveis</small></div></div>
+   <h3>Pelotões sob sua visualização</h3>{pelotoes.map(p=><div key={p.id} style={{padding:"12px 0",borderTop:"1px solid #444"}}><b>{p.nome}</b><small style={{display:"block",opacity:.7}}>{p.total_integrantes??0} integrante(s) · {p.ativo?"Ativo":"Inativo"}</small></div>)}
+   <h3>Integrantes</h3>{members.length===0?<p>Nenhum integrante visível para sua função.</p>:members.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"9px 0",borderTop:"1px solid #444"}}><b>@{m.username}</b><small>{m.papel==="lider_pelotao"?"Líder":m.papel==="admin"?"Administrador":m.papel==="moderador"?"Moderador":"Membro"}</small></div>)}
+   <form onSubmit={createInvite} style={{display:"grid",gap:10,marginTop:16}}><label>Criar convite para pelotão</label><select className="dark-input" value={invite} onChange={e=>setInvite(e.target.value)} required><option value="">Selecione um pelotão</option>{pelotoes.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}</select><button className="primary-btn" disabled={!invite}>Gerar convite (7 dias · até 20 usos)</button></form>
+  </>}
+  {createdToken&&<div className="notice" style={{overflowWrap:"anywhere",marginTop:12}}><b>Código de convite</b><p>{createdToken}</p><button className="outline-btn" onClick={()=>navigator.clipboard?.writeText(createdToken)}>Copiar código</button></div>}
+  {error&&<p className="error">{error}</p>}{notice&&<p className="notice">{notice}</p>}
+ </section>;
+}
 
 function ModeracaoPanel({tokens,api}:{tokens:Tokens;api:string}){
  const [items,setItems]=useState<any[]>([]);
