@@ -191,3 +191,83 @@ class PelotoesTests(APITestCase):
         accepted = self.client.post("/api/torcidas/convites/aceitar/", {"token": token}, format="json")
         self.assertEqual(accepted.status_code, 201)
         self.assertEqual(Membro.objects.get(usuario=convidado, torcida=self.torcida).pelotao_id, pelotao.pk)
+
+
+class LiderPelotaoPermissoesTests(APITestCase):
+    def setUp(self):
+        from .models import Pelotao
+        self.admin = User.objects.create_user(username="admin_lider", password="Senha-Forte-2026!")
+        self.leader = User.objects.create_user(username="lider_norte", password="Senha-Forte-2026!")
+        self.member = User.objects.create_user(username="membro_norte", password="Senha-Forte-2026!")
+        self.outsider = User.objects.create_user(username="membro_sul", password="Senha-Forte-2026!")
+        self.torcida = Torcida.objects.create(nome="Permissões FC", slug="permissoes-fc")
+        self.norte = Pelotao.objects.create(torcida=self.torcida, nome="Norte", slug="norte")
+        self.sul = Pelotao.objects.create(torcida=self.torcida, nome="Sul", slug="sul")
+        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel=Membro.Papel.ADMIN)
+        Membro.objects.create(usuario=self.leader, torcida=self.torcida, papel=Membro.Papel.LIDER_PELOTAO, pelotao=self.norte)
+        self.alvo = Membro.objects.create(usuario=self.member, torcida=self.torcida, pelotao=self.norte)
+        self.fora = Membro.objects.create(usuario=self.outsider, torcida=self.torcida, pelotao=self.sul)
+
+    def test_lider_pode_remover_integrante_do_proprio_pelotao(self):
+        self.client.force_authenticate(user=self.leader)
+        response = self.client.delete(f"/api/torcidas/{self.torcida.pk}/membros/{self.alvo.pk}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Membro.objects.filter(pk=self.alvo.pk).exists())
+
+    def test_lider_nao_pode_remover_integrante_de_outro_pelotao(self):
+        self.client.force_authenticate(user=self.leader)
+        response = self.client.delete(f"/api/torcidas/{self.torcida.pk}/membros/{self.fora.pk}/")
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Membro.objects.filter(pk=self.fora.pk).exists())
+
+    def test_lider_nao_pode_alterar_papel_ou_vinculo_do_integrante(self):
+        self.client.force_authenticate(user=self.leader)
+        response = self.client.patch(
+            f"/api/torcidas/{self.torcida.pk}/membros/{self.alvo.pk}/",
+            {"papel": "moderador"}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_lider_so_pode_criar_convite_para_o_proprio_pelotao(self):
+        self.client.force_authenticate(user=self.leader)
+        own = self.client.post(
+            f"/api/torcidas/{self.torcida.pk}/convites/",
+            {"papel": "membro", "pelotao_id": self.norte.pk}, format="json"
+        )
+        self.assertEqual(own.status_code, 201)
+        outside = self.client.post(
+            f"/api/torcidas/{self.torcida.pk}/convites/",
+            {"papel": "membro", "pelotao_id": self.sul.pk}, format="json"
+        )
+        self.assertEqual(outside.status_code, 403)
+
+    def test_lider_nao_pode_criar_ou_editar_pelotoes(self):
+        self.client.force_authenticate(user=self.leader)
+        create = self.client.post(
+            f"/api/torcidas/{self.torcida.pk}/pelotoes/",
+            {"nome": "Oeste", "slug": "oeste"}, format="json"
+        )
+        self.assertEqual(create.status_code, 403)
+        edit = self.client.patch(
+            f"/api/torcidas/{self.torcida.pk}/pelotoes/{self.sul.pk}/",
+            {"nome": "Sul alterado"}, format="json"
+        )
+        self.assertEqual(edit.status_code, 403)
+
+    def test_admin_pode_designar_lider_mas_lider_precisa_de_pelotao(self):
+        novo = User.objects.create_user(username="novo_lider", password="Senha-Forte-2026!")
+        vinculo = Membro.objects.create(usuario=novo, torcida=self.torcida)
+        self.client.force_authenticate(user=self.admin)
+        invalid = self.client.patch(
+            f"/api/torcidas/{self.torcida.pk}/membros/{vinculo.pk}/",
+            {"papel": "lider_pelotao"}, format="json"
+        )
+        self.assertEqual(invalid.status_code, 400)
+        valid = self.client.patch(
+            f"/api/torcidas/{self.torcida.pk}/membros/{vinculo.pk}/",
+            {"papel": "lider_pelotao", "pelotao_id": self.sul.pk}, format="json"
+        )
+        self.assertEqual(valid.status_code, 200)
+        vinculo.refresh_from_db()
+        self.assertEqual(vinculo.papel, Membro.Papel.LIDER_PELOTAO)
+        self.assertEqual(vinculo.pelotao_id, self.sul.pk)
