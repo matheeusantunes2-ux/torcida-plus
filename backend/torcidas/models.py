@@ -77,7 +77,7 @@ class ConviteTorcida(models.Model):
     )
     token_hash = models.CharField(max_length=64, unique=True)
     papel = models.CharField(
-        max_length=12, choices=Membro.Papel.choices, default=Membro.Papel.MEMBRO
+        max_length=16, choices=Membro.Papel.choices, default=Membro.Papel.MEMBRO
     )
     criado_em = models.DateTimeField(auto_now_add=True)
     expira_em = models.DateTimeField()
