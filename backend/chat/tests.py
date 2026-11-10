@@ -122,7 +122,7 @@ class PelotaoChatScopeTests(APITestCase):
         self.fora = User.objects.create_user(username="pelotao_chat_outside", password="Senha-Forte-2026!")
         self.torcida = Torcida.objects.create(nome="Torcida Pelotão Chat", slug="torcida-pelotao-chat")
         self.pelotao = Pelotao.objects.create(torcida=self.torcida, nome="Norte", slug="norte")
-        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel="admin")
+        Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel="admin", pelotao=self.pelotao)
         Membro.objects.create(usuario=self.integrante, torcida=self.torcida, pelotao=self.pelotao)
         Membro.objects.create(usuario=self.segundo, torcida=self.torcida, pelotao=self.pelotao)
         Membro.objects.create(usuario=self.fora, torcida=self.torcida, papel="membro")
@@ -134,7 +134,7 @@ class PelotaoChatScopeTests(APITestCase):
             "pelotao": self.pelotao.pk,
             "tipo": "grupo",
             "nome": "Resenha Norte",
-            "participantes": [self.admin.pk],
+            "participantes": [self.fora.pk],
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("participantes", response.data)
