@@ -7,9 +7,11 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from store.models import ItemCarrinho, ItemPedido, Pedido, Produto
 from store.payments import validate_webhook_signature
+from store.serializers import ProdutoSerializer
 from torcidas.models import Membro, Torcida
 
 
@@ -61,6 +63,18 @@ class StoreFlowTests(TestCase):
         self.assertTrue(ItemCarrinho.objects.filter(usuario=self.member, produto=self.produto).exists())
         self.produto.refresh_from_db()
         self.assertEqual(self.produto.quantidade, 3)
+
+
+    def test_produto_rejeita_preco_zero(self):
+        serializer = ProdutoSerializer(self.produto, data={"preco": "0.00"}, partial=True)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("preco", serializer.errors)
+
+    def test_produto_rejeita_imagem_acima_de_cinco_mb(self):
+        upload = SimpleUploadedFile("grande.png", b"0" * (5 * 1024 * 1024 + 1), content_type="image/png")
+        serializer = ProdutoSerializer(self.produto, data={"imagem": upload}, partial=True)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("imagem", serializer.errors)
 
     def test_membro_comum_nao_pode_cadastrar_produto(self):
         response = self.client.post("/api/loja/produtos/", {
