@@ -234,7 +234,7 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
 
 
 function LiderPelotaoPanel({tokens,api}:{tokens:Tokens;api:string}){
- const [torcidas,setTorcidas]=useState<any[]>([]),[pelotoes,setPelotoes]=useState<any[]>([]),[members,setMembers]=useState<any[]>([]);
+ const [torcidas,setTorcidas]=useState<any[]>([]),[pelotoes,setPelotoes]=useState<any[]>([]),[members,setMembers]=useState<any[]>([]),[activities,setActivities]=useState<any[]>([]);
  const [selected,setSelected]=useState<number|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[invite,setInvite]=useState("");
  async function request(path:string,method="GET",body?:any){
   const r=await fetch(api+path,{method,headers:{"Content-Type":"application/json",Authorization:"Bearer "+tokens.access},...(body?{body:JSON.stringify(body)}:{})});
@@ -246,15 +246,15 @@ function LiderPelotaoPanel({tokens,api}:{tokens:Tokens;api:string}){
    const d=await request("/api/torcidas/");const list=Array.isArray(d)?d:(d.results||[]);setTorcidas(list);
    if(!list.length){setPelotoes([]);setMembers([]);setSelected(null);return;}
    const id=selected&&list.some((t:any)=>t.id===selected)?selected:list[0].id;setSelected(id);
-   const [p,m]=await Promise.all([request("/api/torcidas/"+id+"/pelotoes/"),request("/api/torcidas/"+id+"/membros/")]);
-   setPelotoes(Array.isArray(p)?p:(p.results||[]));setMembers(Array.isArray(m)?m:(m.results||[]));
+   const [p,m,a]=await Promise.all([request("/api/torcidas/"+id+"/pelotoes/"),request("/api/torcidas/"+id+"/membros/"),request("/api/torcidas/"+id+"/atividades/?limit=30")]);
+   setPelotoes(Array.isArray(p)?p:(p.results||[]));setMembers(Array.isArray(m)?m:(m.results||[]));setActivities(a.results||[]);
   }catch(e){setError(e instanceof Error?e.message:"Falha ao carregar o painel.");}
   finally{setLoading(false);}
  }
  useEffect(()=>{load()},[tokens.access]);
  async function selectTorcida(id:number){
   setSelected(id);setLoading(true);setError("");
-  try{const [p,m]=await Promise.all([request("/api/torcidas/"+id+"/pelotoes/"),request("/api/torcidas/"+id+"/membros/")]);setPelotoes(Array.isArray(p)?p:(p.results||[]));setMembers(Array.isArray(m)?m:(m.results||[]));}
+  try{const [p,m,a]=await Promise.all([request("/api/torcidas/"+id+"/pelotoes/"),request("/api/torcidas/"+id+"/membros/"),request("/api/torcidas/"+id+"/atividades/?limit=30")]);setPelotoes(Array.isArray(p)?p:(p.results||[]));setMembers(Array.isArray(m)?m:(m.results||[]));setActivities(a.results||[]);}
   catch(e){setError(e instanceof Error?e.message:"Não foi possível abrir este pelotão.");}
   finally{setLoading(false);}
  }
@@ -272,6 +272,11 @@ function LiderPelotaoPanel({tokens,api}:{tokens:Tokens;api:string}){
   {!loading&&selected&&<><div className="quick-grid" style={{marginTop:14}}><div className="content-card"><b style={{fontSize:26}}>{pelotoes.length}</b><small style={{display:"block"}}>Pelotões visíveis</small></div><div className="content-card"><b style={{fontSize:26}}>{total}</b><small style={{display:"block"}}>Integrantes visíveis</small></div></div>
    <h3>Pelotões sob sua visualização</h3>{pelotoes.map(p=><div key={p.id} style={{padding:"12px 0",borderTop:"1px solid #444"}}><b>{p.nome}</b><small style={{display:"block",opacity:.7}}>{p.total_integrantes??0} integrante(s) · {p.ativo?"Ativo":"Inativo"}</small></div>)}
    <h3>Integrantes</h3>{members.length===0?<p>Nenhum integrante visível para sua função.</p>:members.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"9px 0",borderTop:"1px solid #444"}}><b>@{m.username}</b><small>{m.papel==="lider_pelotao"?"Líder":m.papel==="admin"?"Administrador":m.papel==="moderador"?"Moderador":"Membro"}</small></div>)}
+   <h3 style={{marginTop:22}}>Histórico de atividades</h3>
+   {activities.length===0?<p>Nenhuma atividade registrada ainda.</p>:activities.map((a:any)=><article key={a.id} style={{borderTop:"1px solid #444",padding:"10px 0"}}>
+    <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><b>{a.acao.replaceAll("_"," ")}</b><small>{new Date(a.criado_em).toLocaleString("pt-BR")}</small></div>
+    <p style={{margin:"5px 0"}}>{a.descricao}</p><small style={{opacity:.7}}>Por: @{a.ator_username||"usuário removido"}{a.pelotao_nome?" · "+a.pelotao_nome:""}</small>
+   </article>)}
    <form onSubmit={createInvite} style={{display:"grid",gap:10,marginTop:16}}><label>Criar convite para pelotão</label><select className="dark-input" value={invite} onChange={e=>setInvite(e.target.value)} required><option value="">Selecione um pelotão</option>{pelotoes.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}</select><button className="primary-btn" disabled={!invite}>Gerar convite (7 dias · até 20 usos)</button></form>
   </>}
   {createdToken&&<div className="notice" style={{overflowWrap:"anywhere",marginTop:12}}><b>Código de convite</b><p>{createdToken}</p><button className="outline-btn" onClick={()=>navigator.clipboard?.writeText(createdToken)}>Copiar código</button></div>}
