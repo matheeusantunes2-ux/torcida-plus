@@ -20,8 +20,10 @@ function MeetingPresentationControls(){
  function openPresentation(file?:File){
   if(!file)return;
   const url=URL.createObjectURL(file);
-  const opened=window.open(url,"_blank","noopener,noreferrer");
+  const opened=window.open(url,"_blank");
   if(!opened){URL.revokeObjectURL(url);setNotice("O navegador bloqueou a nova aba. Permita pop-ups ou abra o arquivo pelo gerenciador de arquivos.");return;}
+  opened.opener=null;
+  window.setTimeout(()=>URL.revokeObjectURL(url),10*60*1000);
   setNotice("Arquivo aberto. Agora toque em Compartilhar tela e selecione a janela/aba do documento. Para PPT/PPTX, use um visualizador compatível.");
  }
  return <section className="meeting-presentation-toolbar">
