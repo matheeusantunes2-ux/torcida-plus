@@ -71,7 +71,7 @@ class ConversaSerializer(serializers.ModelSerializer):
         if pelotao:
             membership = Membro.objects.filter(torcida=torcida, usuario=request.user).first()
             from accounts.permissions import is_platform_admin
-            if not is_platform_admin(request.user) and (not membership or membership.pelotao_id != pelotao.pk):
+            if not is_platform_admin(request.user) and not (membership and membership.pelotao_id == pelotao.pk):
                 raise serializers.ValidationError({"pelotao": "Você precisa estar vinculado a este pelotão para criar conversas nele."})
         tipo = attrs.get("tipo")
         if tipo not in (Conversa.Tipo.PRIVADA, Conversa.Tipo.GRUPO):
@@ -96,8 +96,13 @@ class ConversaSerializer(serializers.ModelSerializer):
         if membros != ids:
             raise serializers.ValidationError({"participantes": "Todos os participantes devem pertencer à torcida."})
         pelotao = validated_data.get("pelotao")
-        if pelotao and not Membro.objects.filter(torcida=validated_data["torcida"], usuario_id__in=ids, pelotao=pelotao).count() == len(ids):
-            raise serializers.ValidationError({"participantes": "Todos os participantes precisam pertencer ao pelotão selecionado."})
+        if pelotao:
+            from accounts.permissions import is_platform_admin
+            allowed_ids = set(Membro.objects.filter(torcida=validated_data["torcida"], usuario_id__in=ids, pelotao=pelotao).values_list("usuario_id", flat=True))
+            if is_platform_admin(request.user):
+                allowed_ids.add(request.user.pk)
+            if allowed_ids != ids:
+                raise serializers.ValidationError({"participantes": "Todos os participantes precisam pertencer ao pelotão selecionado."})
         if validated_data["tipo"] == Conversa.Tipo.PRIVADA and len(ids) != 2:
             raise serializers.ValidationError({"participantes": "Uma conversa privada deve ter exatamente duas pessoas."})
         if validated_data["tipo"] == Conversa.Tipo.GRUPO and len(ids) < 2:
