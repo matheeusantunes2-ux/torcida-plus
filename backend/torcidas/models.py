@@ -34,6 +34,7 @@ class Membro(models.Model):
     class Papel(models.TextChoices):
         ADMIN = "admin", "Administrador"
         MODERADOR = "moderador", "Moderador"
+        LIDER_PELOTAO = "lider_pelotao", "Líder de pelotão"
         MEMBRO = "membro", "Membro"
 
     usuario = models.ForeignKey(
@@ -47,7 +48,7 @@ class Membro(models.Model):
         related_name="membros",
     )
     papel = models.CharField(
-        max_length=12,
+        max_length=16,
         choices=Papel.choices,
         default=Papel.MEMBRO,
     )
