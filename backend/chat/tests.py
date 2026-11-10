@@ -118,11 +118,13 @@ class PelotaoChatScopeTests(APITestCase):
         from torcidas.models import Pelotao
         self.admin = User.objects.create_user(username="pelotao_chat_admin", password="Senha-Forte-2026!")
         self.integrante = User.objects.create_user(username="pelotao_chat_member", password="Senha-Forte-2026!")
+        self.segundo = User.objects.create_user(username="pelotao_chat_member2", password="Senha-Forte-2026!")
         self.fora = User.objects.create_user(username="pelotao_chat_outside", password="Senha-Forte-2026!")
         self.torcida = Torcida.objects.create(nome="Torcida Pelotão Chat", slug="torcida-pelotao-chat")
         self.pelotao = Pelotao.objects.create(torcida=self.torcida, nome="Norte", slug="norte")
         Membro.objects.create(usuario=self.admin, torcida=self.torcida, papel="admin")
         Membro.objects.create(usuario=self.integrante, torcida=self.torcida, pelotao=self.pelotao)
+        Membro.objects.create(usuario=self.segundo, torcida=self.torcida, pelotao=self.pelotao)
         Membro.objects.create(usuario=self.fora, torcida=self.torcida, papel="membro")
 
     def test_integrante_cria_conversa_restrita_ao_pelotao(self):
@@ -155,7 +157,7 @@ class PelotaoChatScopeTests(APITestCase):
             "torcida": self.torcida.pk,
             "pelotao": self.pelotao.pk,
             "tipo": "privada",
-            "participantes": [self.integrante.pk],
+            "participantes": [self.segundo.pk],
         }, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["pelotao"], self.pelotao.pk)
