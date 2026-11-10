@@ -81,3 +81,25 @@
 .app-footer{margin-left:0}
 @media(max-width:900px){.app-shell{padding-left:0}.app-header{padding:0 18px}.desktop-tabs{display:none}.desktop-tabs.open{display:flex;position:fixed;z-index:42;left:0;top:0;bottom:0;width:min(300px,82vw);height:100dvh;padding:24px 15px;box-shadow:20px 0 70px #000b}.sidebar-toggle{display:grid}.sidebar-backdrop{display:block;position:fixed;z-index:41;inset:0;background:#0009;border:0;backdrop-filter:blur(3px)}.dashboard{width:min(900px,calc(100% - 32px));margin:26px auto 90px}}
 @media(max-width:700px){.app-header{height:64px;gap:12px}.wordmark{font-size:27px}.featured-banner{min-height:245px;padding:23px;background-position:58% center}.featured-banner h2{font-size:43px}.featured-banner p{max-width:250px}.dashboard{width:calc(100% - 28px)}}
+
+/* Chamadas de voz */
+.chat-head-actions{display:flex;align-items:center;gap:7px}
+.chat-call-voice{background:#183b2b!important;border-color:#2d7650!important}
+.chat-call-video{background:#25202b!important;border-color:#51405d!important}
+.voice-call-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:24px}
+.voice-call-stage>div{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.voice-call-panel{width:min(440px,100%);min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 22px;background:radial-gradient(circle at 50% 25%,#3a101d,#15151c 68%);border:1px solid #ffffff18;border-radius:22px;box-shadow:0 20px 70px #0008}
+.voice-call-avatar{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#ed1029,#720d20);box-shadow:0 0 45px #ed102955;margin-bottom:22px}
+.voice-call-avatar svg{width:42px;height:42px}
+.voice-call-kicker{font-size:10px;letter-spacing:2px;color:#ff7182;font-weight:800}
+.voice-call-panel h1{font-family:'Barlow Condensed';font-size:38px;margin:9px 0}
+.voice-call-panel>p{font-size:12px;line-height:1.6;color:#b8b8c2;max-width:300px}
+.voice-call-actions{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:28px 0 12px}
+.voice-call-actions button{min-width:145px;min-height:58px;border:1px solid #ffffff20;border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#fff;font-size:11px;font-weight:700}
+.voice-call-actions svg{width:20px;height:20px}
+.voice-mic-on{background:#1d5438}
+.voice-mic-off{background:#353541}
+.voice-hangup{background:#a80d22;border-color:#ed1029!important}
+.voice-call-security{color:#85858f;font-size:10px;margin-top:16px}
+.voice-call-error{color:#ff9da9!important;background:#4b1720;padding:8px 12px;border-radius:8px}
+@media(max-width:480px){.chat-head-actions{gap:4px}.chat-head-actions .chat-call{padding:8px 9px;font-size:10px}.voice-call-stage{padding:12px}.voice-call-panel{min-height:390px;padding:24px 15px}}
