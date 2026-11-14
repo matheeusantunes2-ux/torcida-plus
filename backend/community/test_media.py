@@ -70,7 +70,13 @@ class AcessoImagemPublicacaoTests(TestCase):
         path, token = self.obter_url_assinada()
         response = self.client.get(f"{path}?token={token}")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Cache-Control"], "private, no-store")
+        cache_control = {
+            directive.strip().split("=", 1)[0].lower()
+            for directive in response["Cache-Control"].split(",")
+        }
+        self.assertIn("private", cache_control)
+        self.assertIn("no-store", cache_control)
+        self.assertNotIn("public", cache_control)
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         response.close()
 
