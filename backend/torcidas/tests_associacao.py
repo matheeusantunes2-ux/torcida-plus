@@ -35,3 +35,11 @@ class AssociacaoSaaSTests(APITestCase):
         with patch("torcidas.associacao_views.QR_MAX_AGE",-1):
             r=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/validar-qr/",{"qr_token":token},format="json")
         self.assertFalse(r.data["valido"])
+
+    def test_criacao_de_plano_exige_autenticacao(self):
+        url=f"/api/torcidas/{self.torcida.id}/associacoes/planos/"
+        anonimo=self.client.post(url,{"nome":"Novo Plano","valor":"0","duracao_dias":90},format="json")
+        self.assertEqual(anonimo.status_code,401)
+        self.client.force_authenticate(self.admin)
+        autorizado=self.client.post(url,{"nome":"Novo Plano","valor":"0","duracao_dias":90},format="json")
+        self.assertEqual(autorizado.status_code,201)
