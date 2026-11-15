@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
-import { ShoppingBag, Plus, Pencil, Trash2, RefreshCw, ShoppingCart, Package, CreditCard, QrCode, Receipt, CheckCircle2, ArrowRight, Search, Heart, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ShoppingBag, Plus, Pencil, Trash2, RefreshCw, ShoppingCart, Package, CreditCard, QrCode, Receipt, CheckCircle2, ArrowRight, Search, Heart, SlidersHorizontal } from "lucide-react";
 
 type Props = { tokens: { access: string; refresh: string }; onTokens: (v: { access: string; refresh: string }) => void };
 type Team = { id: number; nome: string };
