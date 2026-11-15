@@ -18,7 +18,7 @@ class BuscaGlobalView(APIView):
 
         torcidas_ids = Membro.objects.filter(usuario=request.user).values_list("torcida_id", flat=True)
         perfis = Perfil.objects.select_related("usuario").filter(
-            usuario__membros_torcida__torcida_id__in=torcidas_ids
+            usuario__vinculos_torcidas__torcida_id__in=torcidas_ids
         ).filter(
             Q(usuario__username__icontains=termo) |
             Q(nome_exibicao__icontains=termo) |
