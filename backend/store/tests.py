@@ -65,6 +65,53 @@ class StoreFlowTests(TestCase):
         self.assertEqual(self.produto.quantidade, 3)
 
 
+
+    def test_cancelamento_de_pedido_devolve_estoque_uma_unica_vez(self):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=2)
+        checkout = self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        self.assertEqual(checkout.status_code, 201)
+        pedido_id = checkout.data["id"]
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 1)
+
+        self.client.force_authenticate(self.admin)
+        cancelamento = self.client.patch(
+            f"/api/loja/pedidos/{pedido_id}/",
+            {"status": Pedido.Status.CANCELADO}, format="json",
+        )
+        self.assertEqual(cancelamento.status_code, 200)
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 3)
+        pedido = Pedido.objects.get(pk=pedido_id)
+        self.assertTrue(pedido.estoque_devolvido)
+
+        repetido = self.client.patch(
+            f"/api/loja/pedidos/{pedido_id}/",
+            {"status": Pedido.Status.CANCELADO}, format="json",
+        )
+        self.assertEqual(repetido.status_code, 200)
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 3)
+
+    def test_pedido_pago_nao_pode_ser_cancelado_sem_estorno(self):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=1)
+        checkout = self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        pedido_id = checkout.data["id"]
+        pedido = Pedido.objects.get(pk=pedido_id)
+        pedido.status_pagamento = "approved"
+        pedido.status = Pedido.Status.PAGO
+        pedido.save(update_fields=["status_pagamento", "status"])
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/api/loja/pedidos/{pedido_id}/",
+            {"status": Pedido.Status.CANCELADO}, format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 2)
+        pedido.refresh_from_db()
+        self.assertFalse(pedido.estoque_devolvido)
+
     def test_produto_rejeita_preco_zero(self):
         serializer = ProdutoSerializer(self.produto, data={"preco": "0.00"}, partial=True)
         self.assertFalse(serializer.is_valid())
