@@ -43,3 +43,21 @@ class AssociacaoSaaSTests(APITestCase):
         self.client.force_authenticate(self.admin)
         autorizado=self.client.post(url,{"nome":"Novo Plano","valor":"0","duracao_dias":90},format="json")
         self.assertEqual(autorizado.status_code,201)
+
+    def test_validacao_qr_invalido_registra_auditoria_sem_salvar_token(self):
+        from .models import AtividadePelotao
+        self.client.force_authenticate(self.admin)
+        response=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/validar-qr/",{"qr_token":"token-invalido-nao-registrar"},format="json")
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(response.data["valido"])
+        log=AtividadePelotao.objects.filter(torcida=self.torcida,acao="validacao_qr_falha").latest("id")
+        self.assertNotIn("token-invalido",log.descricao)
+    def test_validacao_qr_valido_registra_auditoria(self):
+        from .models import AtividadePelotao
+        a=Associacao.objects.create(torcida=self.torcida,usuario=self.user,plano=self.free,status=Associacao.Status.ATIVA,inicio_em=timezone.now(),fim_em=timezone.now()+timedelta(days=30))
+        self.client.force_authenticate(self.user)
+        qr=self.client.get(f"/api/torcidas/associacoes/{a.id}/carteirinha-qr/")
+        self.client.force_authenticate(self.admin)
+        response=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/validar-qr/",{"qr_token":qr.data["qr_token"]},format="json")
+        self.assertTrue(response.data["valido"])
+        self.assertTrue(AtividadePelotao.objects.filter(torcida=self.torcida,acao="validacao_qr_sucesso").exists())
