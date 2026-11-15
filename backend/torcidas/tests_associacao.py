@@ -92,3 +92,36 @@ class AssociacaoSaaSTests(APITestCase):
         self.client.force_authenticate(self.user)
         response=self.client.get(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/")
         self.assertEqual(response.status_code,404)
+
+    def test_membro_comum_nao_cria_cobranca(self):
+        Membro.objects.create(usuario=self.user,torcida=self.torcida,papel=Membro.Papel.MEMBRO)
+        a=Associacao.objects.create(torcida=self.torcida,usuario=self.user,plano=self.paid)
+        self.client.force_authenticate(self.user)
+        response=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/",{"associacao_id":a.id,"valor":"25.00","vencimento":timezone.localdate().isoformat()},format="json")
+        self.assertEqual(response.status_code,403)
+
+    def test_confirmar_pagamento_duas_vezes_nao_duplica_validade(self):
+        from datetime import date
+        from .models import PagamentoAssociacao
+        a=Associacao.objects.create(torcida=self.torcida,usuario=self.user,plano=self.paid)
+        self.client.force_authenticate(self.admin)
+        created=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/",{"associacao_id":a.id,"valor":"25.00","vencimento":date.today().isoformat()},format="json")
+        self.assertEqual(created.status_code,201)
+        url=f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/{created.data['id']}/"
+        first=self.client.patch(url,{"status":"pago"},format="json")
+        self.assertEqual(first.status_code,200)
+        a.refresh_from_db(); first_end=a.fim_em
+        second=self.client.patch(url,{"status":"pago"},format="json")
+        self.assertEqual(second.status_code,200)
+        a.refresh_from_db()
+        self.assertEqual(a.fim_em,first_end)
+        self.assertEqual(PagamentoAssociacao.objects.get(pk=created.data["id"]).status,PagamentoAssociacao.Status.PAGO)
+
+    def test_pagamento_confirmado_nao_pode_ser_cancelado(self):
+        from datetime import date
+        a=Associacao.objects.create(torcida=self.torcida,usuario=self.user,plano=self.paid)
+        self.client.force_authenticate(self.admin)
+        created=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/",{"associacao_id":a.id,"valor":"25.00","vencimento":date.today().isoformat()},format="json")
+        self.client.patch(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/{created.data['id']}/",{"status":"pago"},format="json")
+        cancelled=self.client.patch(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/{created.data['id']}/",{"status":"cancelado"},format="json")
+        self.assertEqual(cancelled.status_code,400)
