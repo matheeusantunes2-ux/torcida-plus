@@ -318,3 +318,12 @@ button svg{width:18px;height:18px}
 .composer-image-preview small{font-size:11px;color:#9999a8}
 .composer-publish:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 @media(max-width:520px){.home-feed-heading{align-items:flex-start}.create-post-trigger{padding:10px 11px;font-size:12px}.post-composer-card{padding:14px}.composer-submit-row{align-items:flex-end}.composer-submit-row>small{max-width:55%}}
+
+.composer-attachment-tools{display:flex;flex-wrap:wrap;gap:7px}
+.composer-recording{display:inline-flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ff526b;border-radius:11px;background:#ff18351c;color:#ff6b80;font-size:13px;font-weight:700;cursor:pointer}
+.composer-selected-file{display:flex;align-items:center;gap:10px;margin-top:10px;padding:11px;border:1px solid #ffffff20;border-radius:11px;background:#111118;color:#eee}
+.composer-selected-file>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.composer-selected-file button{border:0;background:transparent;color:#ff7084;cursor:pointer}
+.post-audio-attachment,.post-document-attachment{display:flex;align-items:center;gap:12px;margin:12px 0;padding:12px;border:1px solid #ffffff18;border-radius:12px;background:#15151d}
+.post-audio-attachment{display:grid}.post-audio-attachment audio{width:100%;max-width:520px}
+.post-document-attachment{color:inherit;text-decoration:none;font-weight:650}.post-document-attachment svg{width:20px;height:20px;color:#ff6479}

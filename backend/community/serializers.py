@@ -2,6 +2,7 @@ from PIL import Image, UnidentifiedImageError
 from django.core import signing
 from django.urls import reverse
 from urllib.parse import urlencode
+from pathlib import PurePosixPath
 from rest_framework import serializers
 
 from torcidas.models import Membro, Torcida
@@ -36,8 +37,33 @@ class SignedPublicationImageField(serializers.ImageField):
         return request.build_absolute_uri(url)
 
 
+class SignedPublicationFileField(serializers.FileField):
+    """URL assinada de anexo, limitada ao usuário autenticado."""
+    def __init__(self, media_kind, *args, **kwargs):
+        self.media_kind = media_kind
+        super().__init__(*args, **kwargs)
+
+    def get_attribute(self, instance):
+        self._current_publicacao = instance
+        return super().get_attribute(instance)
+
+    def to_representation(self, value):
+        if not value:
+            return None
+        request = self.context.get("request")
+        post = getattr(self, "_current_publicacao", None)
+        if not request or not request.user.is_authenticated or not post:
+            return None
+        token = signing.dumps({"publicacao_id": post.pk, "usuario_id": request.user.pk, "arquivo": value.name, "tipo": self.media_kind}, salt="torcida-publicacao-media-v1")
+        relative = value.name.removeprefix(f"publicacoes/{self.media_kind}/")
+        path = reverse("media-publicacao-anexo", kwargs={"kind": self.media_kind, "path": relative})
+        return request.build_absolute_uri(f"{path}?{urlencode({'token': token})}")
+
+
 class PublicacaoSerializer(serializers.ModelSerializer):
     imagem = SignedPublicationImageField(required=False, allow_null=True)
+    audio = SignedPublicationFileField("audio", required=False, allow_null=True)
+    arquivo = SignedPublicationFileField("arquivos", required=False, allow_null=True)
 
     autor_id = serializers.IntegerField(
         source="autor.id",
@@ -73,6 +99,8 @@ class PublicacaoSerializer(serializers.ModelSerializer):
             "texto",
             "status",
             "imagem",
+            "audio",
+            "arquivo",
             "criada_em",
             "atualizada_em",
         ]
@@ -169,6 +197,22 @@ class PublicacaoSerializer(serializers.ModelSerializer):
             imagem.seek(0)
 
         return imagem
+
+
+    def _validate_upload(self, upload, extensions, limit, label):
+        if upload is None:
+            return upload
+        if PurePosixPath(upload.name).suffix.lower() not in extensions:
+            raise serializers.ValidationError(f"Formato de {label} não permitido.")
+        if upload.size > limit:
+            raise serializers.ValidationError(f"{label.capitalize()} excede o limite de {limit // (1024 * 1024)} MB.")
+        return upload
+
+    def validate_audio(self, upload):
+        return self._validate_upload(upload, {".mp3", ".m4a", ".aac", ".ogg", ".wav", ".webm"}, 15 * 1024 * 1024, "áudio")
+
+    def validate_arquivo(self, upload):
+        return self._validate_upload(upload, {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp"}, 20 * 1024 * 1024, "documento")
 
     def validate_texto(self, texto):
         if not texto.strip():

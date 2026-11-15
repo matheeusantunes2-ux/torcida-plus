@@ -30,6 +30,11 @@ urlpatterns = [
 # por um CDN; no momento, o Django atende os arquivos em MEDIA_ROOT.
 urlpatterns += [
     re_path(
+        r"^media/publicacoes/(?P<kind>audio|arquivos)/(?P<path>.+)$",
+        PublicacaoImageView.as_view(),
+        name="media-publicacao-anexo",
+    ),
+    re_path(
         r"^media/publicacoes/(?P<path>.+)$",
         PublicacaoImageView.as_view(),
         name="media-publicacao",

@@ -14,9 +14,9 @@ from torcidas.models import Membro
 
 @method_decorator(never_cache, name="dispatch")
 class PublicacaoImageView(View):
-    """Entrega imagem de publicação somente a membro atual ou admin global."""
+    """Entrega mídia de publicação somente a membro atual ou admin global."""
 
-    def get(self, request, path):
+    def get(self, request, path, kind="imagem"):
         token = request.GET.get("token", "")
         try:
             dados = signing.loads(
@@ -27,12 +27,16 @@ class PublicacaoImageView(View):
         except signing.BadSignature:
             raise Http404
 
-        if dados.get("arquivo") != f"publicacoes/{path}":
+        field_name = {"imagem": "imagem", "audio": "audio", "arquivos": "arquivo"}.get(kind)
+        if not field_name or dados.get("tipo", "imagem") != kind:
+            raise Http404
+        expected_name = f"publicacoes/{kind}/{path}" if kind != "imagem" else f"publicacoes/{path}"
+        if dados.get("arquivo") != expected_name:
             raise Http404
 
         publicacao = Publicacao.objects.select_related("torcida").filter(
             pk=dados.get("publicacao_id"),
-            imagem=f"publicacoes/{path}",
+            **{field_name: expected_name},
             status=Publicacao.Status.APROVADA,
         ).first()
         if not publicacao:
@@ -53,12 +57,13 @@ class PublicacaoImageView(View):
             raise Http404
 
         try:
-            arquivo = publicacao.imagem.open("rb")
+            arquivo_field = getattr(publicacao, field_name)
+            arquivo = arquivo_field.open("rb")
         except (FileNotFoundError, OSError, ValueError):
             raise Http404
 
-        content_type, _ = mimetypes.guess_type(publicacao.imagem.name)
-        response = FileResponse(arquivo, content_type=content_type or "application/octet-stream")
+        content_type, _ = mimetypes.guess_type(arquivo_field.name)
+        response = FileResponse(arquivo, content_type=content_type or "application/octet-stream", as_attachment=(kind == "arquivos"), filename=arquivo_field.name.rsplit("/", 1)[-1])
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"
         return response
