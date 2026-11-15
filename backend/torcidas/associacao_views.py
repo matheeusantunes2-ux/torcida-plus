@@ -1,5 +1,5 @@
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from django.core import signing
 from django.db import IntegrityError, transaction
@@ -11,7 +11,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from accounts.permissions import is_platform_admin
-from .models import Torcida, Membro, PlanoAssociacao, Associacao
+from .models import Torcida, Membro, PlanoAssociacao, Associacao, PagamentoAssociacao
 from .audit_views import registrar_atividade
 
 QR_SALT = "torcida-plus-membership-qr-v1"
@@ -115,3 +115,84 @@ class ValidarCarteirinhaQRView(APIView):
             return Response({"valido":False,"mensagem":"Carteirinha inválida, expirada ou de outra torcida."})
         registrar_atividade(torcida,request.user,"validacao_qr_sucesso",f"Carteirinha validada para associação #{a.id}.")
         return Response({"valido":True,"associado":a.usuario.get_username(),"plano":a.plano.nome,"validade":a.fim_em})
+
+
+class PagamentosAssociacaoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, torcida_id):
+        torcida = _torcida_visivel(request, torcida_id)
+        _exigir_gestor(request, torcida)
+        hoje = timezone.localdate()
+        PagamentoAssociacao.objects.filter(associacao__torcida=torcida, status=PagamentoAssociacao.Status.PENDENTE, vencimento__lt=hoje).update(status=PagamentoAssociacao.Status.ATRASADO)
+        qs = PagamentoAssociacao.objects.filter(associacao__torcida=torcida).select_related("associacao__usuario", "associacao__plano", "confirmado_por").order_by("vencimento", "id")
+        return Response([{
+            "id": p.id, "associacao_id": p.associacao_id,
+            "username": p.associacao.usuario.get_username(),
+            "plano": p.associacao.plano.nome,
+            "valor": str(p.valor), "vencimento": p.vencimento,
+            "status": p.status, "pago_em": p.pago_em,
+            "confirmado_por": p.confirmado_por.get_username() if p.confirmado_por else None,
+            "observacao": p.observacao,
+        } for p in qs])
+
+    def post(self, request, torcida_id):
+        torcida = _torcida_visivel(request, torcida_id)
+        _exigir_gestor(request, torcida)
+        try:
+            associacao = Associacao.objects.select_related("plano").get(pk=request.data.get("associacao_id"), torcida=torcida)
+            valor = Decimal(str(request.data.get("valor", associacao.plano.valor)))
+            vencimento = date.fromisoformat(str(request.data.get("vencimento", "")))
+        except (Associacao.DoesNotExist, ValueError, TypeError, InvalidOperation):
+            raise ValidationError("Informe uma associação existente, valor e vencimento válidos.")
+        if associacao.status == Associacao.Status.CANCELADA:
+            raise ValidationError("Não é possível gerar cobrança para uma associação cancelada.")
+        observacao = str(request.data.get("observacao", "")).strip()
+        if not valor.is_finite() or valor <= 0 or valor > Decimal("99999999") or len(observacao) > 240:
+            raise ValidationError("Valor ou observação inválidos.")
+        try:
+            pagamento = PagamentoAssociacao.objects.create(associacao=associacao, valor=valor, vencimento=vencimento, observacao=observacao)
+        except IntegrityError:
+            raise ValidationError("Já existe uma cobrança para esta associação nesta data de vencimento.")
+        registrar_atividade(torcida, request.user, "cobranca_criada", f"Cobrança #{pagamento.id} criada para associação #{associacao.id}, vencimento {vencimento}.")
+        return Response({"id": pagamento.id, "status": pagamento.status, "valor": str(pagamento.valor), "vencimento": pagamento.vencimento}, status=status.HTTP_201_CREATED)
+
+
+class DetalhePagamentoAssociacaoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, torcida_id, pagamento_id):
+        torcida = _torcida_visivel(request, torcida_id)
+        _exigir_gestor(request, torcida)
+        with transaction.atomic():
+            pagamento = get_object_or_404(PagamentoAssociacao.objects.select_for_update().select_related("associacao__plano"), pk=pagamento_id, associacao__torcida=torcida)
+            novo = request.data.get("status")
+            if novo == PagamentoAssociacao.Status.PAGO:
+                if pagamento.status == PagamentoAssociacao.Status.CANCELADO:
+                    raise ValidationError("Uma cobrança cancelada não pode ser recebida.")
+                if pagamento.status != PagamentoAssociacao.Status.PAGO:
+                    associacao = Associacao.objects.select_for_update().get(pk=pagamento.associacao_id)
+                    if associacao.status == Associacao.Status.CANCELADA:
+                        raise ValidationError("A associação foi cancelada e não pode ser renovada por esta cobrança.")
+                    agora = timezone.now()
+                    base = associacao.fim_em if associacao.fim_em and associacao.fim_em > agora else agora
+                    associacao.status = Associacao.Status.ATIVA
+                    associacao.inicio_em = associacao.inicio_em or agora
+                    associacao.fim_em = base + timedelta(days=associacao.plano.duracao_dias)
+                    associacao.aprovado_por = request.user
+                    associacao.save(update_fields=["status", "inicio_em", "fim_em", "aprovado_por", "atualizado_em"])
+                    Membro.objects.get_or_create(usuario=associacao.usuario, torcida=torcida, defaults={"papel": Membro.Papel.MEMBRO})
+                    pagamento.status = PagamentoAssociacao.Status.PAGO
+                    pagamento.pago_em = agora
+                    pagamento.confirmado_por = request.user
+                    pagamento.save(update_fields=["status", "pago_em", "confirmado_por"])
+                    registrar_atividade(torcida, request.user, "pagamento_confirmado", f"Pagamento #{pagamento.id} confirmado; associação #{associacao.id} ativada/renovada.")
+            elif novo == PagamentoAssociacao.Status.CANCELADO:
+                if pagamento.status == PagamentoAssociacao.Status.PAGO:
+                    raise ValidationError("Pagamento confirmado não pode ser cancelado por esta operação.")
+                pagamento.status = PagamentoAssociacao.Status.CANCELADO
+                pagamento.save(update_fields=["status"])
+                registrar_atividade(torcida, request.user, "cobranca_cancelada", f"Cobrança #{pagamento.id} cancelada.")
+            else:
+                raise ValidationError({"status": "Use pago ou cancelado."})
+        return Response({"id": pagamento.id, "status": pagamento.status, "pago_em": pagamento.pago_em})
