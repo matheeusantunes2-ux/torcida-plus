@@ -16,6 +16,19 @@ def membro(user,tid): return is_platform_admin(user) or Membro.objects.filter(us
 def gerente(user,tid):
  return is_platform_admin(user) or Membro.objects.filter(usuario=user,torcida_id=tid,papel__in=("admin","moderador")).exists()
 
+def cancelar_pedido_e_devolver_estoque(pedido):
+ # Deve ser chamado dentro de transaction.atomic(), com o pedido bloqueado.
+ if pedido.estoque_devolvido:
+  return False
+ for item in pedido.itens.select_related("produto").all():
+  produto = Produto.objects.select_for_update().get(pk=item.produto_id)
+  produto.quantidade = F("quantidade") + item.quantidade
+  produto.save(update_fields=["quantidade", "atualizado_em"])
+ pedido.estoque_devolvido = True
+ pedido.status = Pedido.Status.CANCELADO
+ pedido.save(update_fields=["estoque_devolvido", "status"])
+ return True
+
 class ProdutosView(APIView):
  permission_classes=[IsAuthenticated]
  def get(self,r):
@@ -101,15 +114,21 @@ class PedidosView(APIView):
   if not can_manage:qs=qs.filter(comprador=r.user)
   return Response({"results":PedidoSerializer(qs.prefetch_related("itens"),many=True).data,"can_manage":can_manage})
  def patch(self,r,pk):
-  p=get_object_or_404(Pedido,pk=pk)
-  if not gerente(r.user,p.torcida_id):return Response({"detail":"Sem permissão."},status=403)
-  allowed={Pedido.Status.SEPARACAO,Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO,Pedido.Status.CANCELADO}
-  status=r.data.get("status")
-  if status not in allowed:return Response({"detail":"Status inválido para gestão. A confirmação de pagamento é feita exclusivamente pelo Mercado Pago."},status=400)
-  if status==Pedido.Status.CANCELADO and p.status_pagamento=="approved":return Response({"detail":"Pedidos pagos não podem ser cancelados por aqui. Faça o estorno no provedor de pagamento."},status=409)
-  if status==Pedido.Status.ENVIADO and p.status not in (Pedido.Status.PAGO,Pedido.Status.SEPARACAO):return Response({"detail":"O pedido precisa estar pago antes do envio."},status=409)
-  if status==Pedido.Status.CONCLUIDO and p.status not in (Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO):return Response({"detail":"O pedido precisa estar enviado antes da conclusão."},status=409)
-  p.status=status;p.save(update_fields=["status"]);return Response(PedidoSerializer(p).data)
+  with transaction.atomic():
+   p=get_object_or_404(Pedido.objects.select_for_update(),pk=pk)
+   if not gerente(r.user,p.torcida_id):return Response({"detail":"Sem permissão."},status=403)
+   allowed={Pedido.Status.SEPARACAO,Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO,Pedido.Status.CANCELADO}
+   status=r.data.get("status")
+   if status not in allowed:return Response({"detail":"Status inválido para gestão. A confirmação de pagamento é feita exclusivamente pelo Mercado Pago."},status=400)
+   if status==Pedido.Status.CANCELADO:
+    if p.status_pagamento=="approved":return Response({"detail":"Pedidos pagos não podem ser cancelados por aqui. Faça o estorno no provedor de pagamento."},status=409)
+    cancelar_pedido_e_devolver_estoque(p)
+    return Response(PedidoSerializer(p).data)
+   if p.status==Pedido.Status.CANCELADO:return Response({"detail":"Pedido cancelado não pode avançar de etapa."},status=409)
+   if status==Pedido.Status.ENVIADO and p.status not in (Pedido.Status.PAGO,Pedido.Status.SEPARACAO):return Response({"detail":"O pedido precisa estar pago antes do envio."},status=409)
+   if status==Pedido.Status.CONCLUIDO and p.status not in (Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO):return Response({"detail":"O pedido precisa estar enviado antes da conclusão."},status=409)
+   p.status=status;p.save(update_fields=["status"])
+   return Response(PedidoSerializer(p).data)
 
 
 
@@ -201,9 +220,13 @@ class MercadoPagoWebhookView(APIView):
    pedido=Pedido.objects.select_for_update().get(pk=order_id)
    pedido.mercado_pago_payment_id=str(payment.get("id",""))
    pedido.status_pagamento=status_mp or pedido.status_pagamento
-   if status_mp == "approved" and pedido.status != Pedido.Status.CANCELADO:
-    pedido.status=Pedido.Status.PAGO
-   pedido.save(update_fields=["mercado_pago_payment_id","status_pagamento","status"])
+   if status_mp == "approved":
+    # Não reabre um pedido já cancelado: isso exige análise administrativa.
+    if pedido.status != Pedido.Status.CANCELADO:
+     pedido.status=Pedido.Status.PAGO
+   elif status_mp in ("cancelled","rejected") and pedido.status not in (Pedido.Status.ENVIADO,Pedido.Status.CONCLUIDO):
+    cancelar_pedido_e_devolver_estoque(pedido)
+   pedido.save(update_fields=["mercado_pago_payment_id","status_pagamento","status","estoque_devolvido"])
   return Response({"received":True},status=200)
 
 class CatalogoDemoView(APIView):
