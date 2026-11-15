@@ -12,7 +12,7 @@ from datetime import timedelta
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from store.models import ItemCarrinho, ItemPedido, Pedido, Produto
+from store.models import ItemCarrinho, ItemPedido, Pedido, Produto, MovimentacaoEstoque
 from store.payments import validate_webhook_signature
 from store.serializers import ProdutoSerializer
 from torcidas.models import Membro, Torcida
@@ -57,6 +57,44 @@ class StoreFlowTests(TestCase):
         self.assertEqual(self.produto.quantidade, 1)
         self.assertEqual(ItemPedido.objects.filter(pedido_id=response.data["id"]).count(), 1)
         self.assertFalse(ItemCarrinho.objects.filter(usuario=self.member, produto=self.produto).exists())
+
+    def test_checkout_registra_reserva_e_cancelamento_registra_devolucao(self):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=2)
+        checkout = self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        pedido_id = checkout.data["id"]
+        reserva = MovimentacaoEstoque.objects.get(
+            pedido_id=pedido_id, produto=self.produto,
+            tipo=MovimentacaoEstoque.Tipo.RESERVA,
+        )
+        self.assertEqual(reserva.quantidade, 2)
+        self.assertEqual(reserva.saldo_anterior, 3)
+        self.assertEqual(reserva.saldo_posterior, 1)
+
+        self.client.force_authenticate(self.admin)
+        cancelamento = self.client.patch(
+            f"/api/loja/pedidos/{pedido_id}/",
+            {"status": Pedido.Status.CANCELADO}, format="json",
+        )
+        self.assertEqual(cancelamento.status_code, 200)
+        devolucao = MovimentacaoEstoque.objects.get(
+            pedido_id=pedido_id, produto=self.produto,
+            tipo=MovimentacaoEstoque.Tipo.DEVOLUCAO,
+        )
+        self.assertEqual(devolucao.quantidade, 2)
+        self.assertEqual(devolucao.saldo_anterior, 1)
+        self.assertEqual(devolucao.saldo_posterior, 3)
+        self.assertEqual(MovimentacaoEstoque.objects.filter(pedido_id=pedido_id).count(), 2)
+
+    def test_historico_de_estoque_restrito_ao_admin_global(self):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=1)
+        self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        response_membro = self.client.get("/api/loja/estoque/movimentacoes/")
+        self.assertEqual(response_membro.status_code, 403)
+        self.client.force_authenticate(self.admin)
+        response_admin = self.client.get("/api/loja/estoque/movimentacoes/")
+        self.assertEqual(response_admin.status_code, 200)
+        self.assertEqual(len(response_admin.data["results"]), 1)
+        self.assertEqual(response_admin.data["results"][0]["tipo"], "reserva")
 
     def test_checkout_sem_estoque_nao_cria_pedido_nem_remove_carrinho(self):
         ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=4)
