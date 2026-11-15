@@ -175,3 +175,5 @@
 .ticket-buy-button:disabled{opacity:.55;cursor:wait}
 .ticket-confirmed{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border:1px solid #287c50;border-radius:10px;background:#143b2a;color:#9bf0bb;font-size:10px;font-weight:800}
 .event-card-actions>div{align-items:center;flex-wrap:wrap}
+
+.ticket-code{display:block;flex-basis:100%;font-size:9px;color:#9bf0bb;text-align:right;overflow-wrap:anywhere}

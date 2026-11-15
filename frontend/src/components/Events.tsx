@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, FormEvent } from "react";
 import { CalendarDays, MapPin, Plus, RefreshCw, Ticket, Users, Pencil, Trash2 } from "lucide-react";
 
-type Props = { tokens: { access: string; refresh: string }; onTokens: (v: { access: string; refresh: string }) => void };
+type Props = { tokens: { access: string; refresh: string }; onTokens: (v: { access: string; refresh: string }) => void; searchQuery?: string };
 type Team = { id: number; nome: string };
 type EventItem = { id: number; torcida: number; torcida_nome: string; titulo: string; descricao: string; tipo: string; local: string; inicio_em: string; fim_em: string | null; capacidade: number | null; valor: string; status: string; criado_por_nome: string };
 const API = import.meta.env.VITE_API_URL || "";
@@ -9,7 +9,7 @@ const empty = { torcida: "", titulo: "", descricao: "", tipo: "encontro", local:
 const money = (v: string) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const date = (v: string) => new Date(v).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-export default function Events({ tokens, onTokens }: Props) {
+export default function Events({ tokens, onTokens, searchQuery = "" }: Props) {
  const [teams,setTeams]=useState<Team[]>([]);
  const [items,setItems]=useState<EventItem[]>([]);
  const [form,setForm]=useState(empty);
@@ -90,7 +90,7 @@ export default function Events({ tokens, onTokens }: Props) {
   catch(e){setError(e instanceof Error?e.message:"Não foi possível excluir o evento.");}
   finally{setBusy(false);}
  }
- const visible=items.filter(item=>filter==="todos"||item.status===filter).sort((a,b)=>new Date(a.inicio_em).getTime()-new Date(b.inicio_em).getTime());
+ const visible=items.filter(item=>(filter==="todos"||item.status===filter)&&(!searchQuery.trim()||[item.titulo,item.descricao,item.local,item.torcida_nome].some(value=>value.toLowerCase().includes(searchQuery.trim().toLowerCase())))).sort((a,b)=>new Date(a.inicio_em).getTime()-new Date(b.inicio_em).getTime());
  return <div className="events-wrap">
   <header className="events-head"><div><span className="kicker"><CalendarDays size={14}/> AGENDA DA TORCIDA</span><h2>Jogos, encontros e caravanas</h2><p>Organize os compromissos e acompanhe a programação da torcida.</p></div><button className="primary-btn" onClick={newEvent} disabled={!teams.length}><Plus size={16}/> Criar evento</button></header>
   {error&&<div className="error">{error}</div>}{notice&&<div className="notice">{notice}</div>}
@@ -107,6 +107,6 @@ export default function Events({ tokens, onTokens }: Props) {
    <small>O servidor permite criar e editar eventos somente para administradores e moderadores da torcida.</small>
   </form>}
   <div className="events-toolbar"><div className="events-filters">{["todos","publicado","rascunho","cancelado","encerrado"].map(f=><button key={f} className={filter===f?"active":""} onClick={()=>setFilter(f)}>{f==="todos"?"Todos":f[0].toUpperCase()+f.slice(1)}</button>)}</div><button className="outline-btn" onClick={()=>void load()} disabled={loading}><RefreshCw size={15}/> Atualizar</button></div>
-  {loading?<div className="content-card">Carregando agenda...</div>:visible.length===0?<div className="content-card events-empty"><CalendarDays/><h3>Nenhum evento nesta categoria</h3><p>Quando houver jogos, encontros ou viagens cadastrados, eles aparecerão aqui.</p></div>:<div className="events-list">{visible.map(item=><article className="content-card event-card" key={item.id}><div className="event-card-top"><span className={"event-status status-"+item.status}>{item.status}</span><small>{item.torcida_nome}</small></div><h3>{item.titulo}</h3>{item.descricao&&<p>{item.descricao}</p>}<div className="event-meta"><span><CalendarDays size={15}/>{date(item.inicio_em)}</span>{item.local&&<span><MapPin size={15}/>{item.local}</span>}<span><Ticket size={15}/>{Number(item.valor)>0?money(item.valor):"Gratuito"}</span>{item.capacidade&&<span><Users size={15}/>{item.capacidade} vagas</span>}</div><div className="event-card-actions"><small>Organização: {item.criado_por_nome}</small><div>{item.status==="publicado"&&<>{ticketStates[item.id]?.pode_entrar?<span className="ticket-confirmed"><Ticket size={14}/> Ingresso confirmado</span>:<button className="ticket-buy-button" onClick={()=>void buyTicket(item)} disabled={ticketBusy===item.id}><Ticket size={15}/>{ticketBusy===item.id?"Preparando...":Number(item.valor)>0?"Comprar ingresso · Pix":"Emitir ingresso gratuito"}</button>}</>}{teams.length>0&&<button className="outline-btn" onClick={()=>startEdit(item)}><Pencil size={14}/> Editar</button>}<button className="outline-btn" onClick={()=>void remove(item)} disabled={busy}><Trash2 size={14}/> Excluir</button></div></div></article>)}</div>}
+  {loading?<div className="content-card">Carregando agenda...</div>:visible.length===0?<div className="content-card events-empty"><CalendarDays/><h3>Nenhum evento nesta categoria</h3><p>Quando houver jogos, encontros ou viagens cadastrados, eles aparecerão aqui.</p></div>:<div className="events-list">{visible.map(item=><article className="content-card event-card" key={item.id}><div className="event-card-top"><span className={"event-status status-"+item.status}>{item.status}</span><small>{item.torcida_nome}</small></div><h3>{item.titulo}</h3>{item.descricao&&<p>{item.descricao}</p>}<div className="event-meta"><span><CalendarDays size={15}/>{date(item.inicio_em)}</span>{item.local&&<span><MapPin size={15}/>{item.local}</span>}<span><Ticket size={15}/>{Number(item.valor)>0?money(item.valor):"Gratuito"}</span>{item.capacidade&&<span><Users size={15}/>{item.capacidade} vagas</span>}</div><div className="event-card-actions"><small>Organização: {item.criado_por_nome}</small><div>{item.status==="publicado"&&<>{ticketStates[item.id]?.pode_entrar?<span className="ticket-confirmed"><Ticket size={14}/> Ingresso confirmado</span><small className="ticket-code">Código: {ticketStates[item.id]?.ingressos?.find((ticket:any)=>ticket.status==="pago")?.codigo||"Confirmado"}</small>:<button className="ticket-buy-button" onClick={()=>void buyTicket(item)} disabled={ticketBusy===item.id}><Ticket size={15}/>{ticketBusy===item.id?"Preparando...":Number(item.valor)>0?"Comprar ingresso · Pix":"Emitir ingresso gratuito"}</button>}</>}{teams.length>0&&<button className="outline-btn" onClick={()=>startEdit(item)}><Pencil size={14}/> Editar</button>}<button className="outline-btn" onClick={()=>void remove(item)} disabled={busy}><Trash2 size={14}/> Excluir</button></div></div></article>)}</div>}
  </div>;
 }
