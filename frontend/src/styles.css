@@ -126,3 +126,47 @@
 /* Diagnóstico de conexão das chamadas */
 .call-connection-error{padding:11px 16px;background:#56202a;color:#ffd3d8;border-bottom:1px solid #ff647a55;font-size:12px;line-height:1.45}
 @media(max-width:700px){.events-head{align-items:flex-start;flex-direction:column}.events-head .primary-btn{width:100%;justify-content:center}.events-fields{grid-template-columns:1fr}.events-toolbar{align-items:flex-start;flex-direction:column}.event-card-actions{align-items:flex-start;flex-direction:column}.event-card-actions>div{width:100%}.event-card-actions .outline-btn{flex:1;justify-content:center}}
+
+/* Pesquisa global fixa e navegação exclusivamente lateral */
+.app-header{position:sticky;top:0;z-index:35;gap:18px;backdrop-filter:blur(18px);box-shadow:0 8px 28px #0004}
+.global-search-wrap{position:relative;display:flex;align-items:center;gap:10px;flex:1;max-width:650px;height:44px;padding:0 14px;background:#17171f;border:1px solid #ffffff20;border-radius:14px;color:#9d9da8;transition:border-color .2s,box-shadow .2s}
+.global-search-wrap:focus-within{border-color:#ed1029;box-shadow:0 0 0 3px #ed10291b}
+.global-search-wrap>svg{width:18px;flex:none;color:#ff5367}
+.global-search-wrap>input{width:100%;min-width:0;background:transparent;border:0;outline:0;color:#fff;font:inherit;font-size:13px}
+.global-search-wrap>input::placeholder{color:#858590}
+.search-clear{border:0;background:#292932;color:#ddd;border-radius:50%;width:25px;height:25px;font-size:18px;line-height:1}
+.global-search-results{position:absolute;top:calc(100% + 10px);left:0;right:0;max-height:min(70vh,520px);overflow:auto;padding:9px;background:#14141b;border:1px solid #ffffff24;border-radius:15px;box-shadow:0 20px 60px #000c;z-index:60}
+.search-result-heading{padding:9px 10px 5px;color:#ff7182;font-size:9px;font-weight:800;letter-spacing:1.5px}
+.global-search-results>button{width:100%;display:flex;align-items:center;gap:11px;text-align:left;padding:10px;border:0;border-radius:10px;background:transparent;color:#fff}
+.global-search-results>button:hover{background:#ffffff0d}
+.global-search-results>button>span:last-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+.global-search-results b{font-size:12px}.global-search-results small{font-size:10px;color:#999}
+.search-result-avatar{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:50%;background:#29212b;color:#ff6879;overflow:hidden}
+.search-result-avatar img{width:100%;height:100%;object-fit:cover}
+.search-no-result{display:block;padding:7px 10px 12px}
+.profile-peek-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:18px;background:#000b;backdrop-filter:blur(5px)}
+.profile-peek-card{position:relative;width:min(390px,100%);padding:28px 24px;text-align:center;background:#17171f;border:1px solid #ffffff22;border-radius:22px;box-shadow:0 24px 80px #000b}
+.profile-peek-close{position:absolute;right:13px;top:10px;border:0;background:#292932;color:#fff;border-radius:50%;width:30px;height:30px;font-size:22px}
+.profile-peek-photo,.profile-peek-placeholder{width:88px;height:88px;border-radius:50%;object-fit:cover;margin:8px auto 12px;background:#28212b;color:#ed1029}
+.profile-peek-card h2{margin:4px 0;font-size:20px}.profile-peek-card>small{color:#ff7182}.profile-peek-card p{font-size:12px;line-height:1.6;color:#bbb;margin-top:16px}
+@media(max-width:900px){.app-header{gap:10px}.global-search-wrap{max-width:none;height:40px}.wordmark{font-size:24px}.header-actions{gap:6px}.header-actions button{width:34px;height:34px}}
+@media(max-width:560px){.app-header{padding:0 10px;gap:8px}.wordmark{font-size:21px}.global-search-wrap{height:38px;padding:0 9px;gap:6px}.global-search-wrap>input{font-size:11px}.global-search-wrap>svg{width:15px}.header-actions button{width:32px;height:32px}.header-actions .avatar-mini{display:none}}
+/* Composição moderna de mensagens e mensagens de voz */
+.chat-compose{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;gap:9px;padding:12px;background:rgba(16,16,23,.96);border:1px solid #ffffff1d;border-radius:18px;box-shadow:0 -8px 28px #0005;backdrop-filter:blur(14px)}
+.chat-compose>input:not([type=file]){height:46px;min-width:0;flex:1;background:#09090f;border:1px solid #ffffff20;border-radius:14px;padding:0 15px;color:#fff;outline:none;font-size:13px}
+.chat-compose>input:not([type=file]):focus{border-color:#ed1029;box-shadow:0 0 0 3px #ed10291a}
+.chat-compose .chat-attach,.chat-send-button{width:44px;height:44px;flex:none;display:grid;place-items:center;border:1px solid #ffffff20;border-radius:14px;background:#24242d;color:#ddd;transition:transform .15s,background .15s}
+.chat-compose .chat-attach:hover,.chat-send-button:hover:not(:disabled){transform:translateY(-2px);background:#363641}
+.chat-compose .chat-attach svg,.chat-send-button svg{width:19px;height:19px}
+.chat-compose .chat-attach-audio{background:#1c3d30;border-color:#2b7952;color:#8cf0b4}
+.chat-compose .chat-attach-audio.recording{background:#7c1626;border-color:#ff526b;color:#fff;animation:audioPulse 1.2s infinite}
+.chat-send-button{background:linear-gradient(145deg,#ff304a,#b80d27);border-color:#ff526b;color:#fff}
+.chat-send-button:disabled{opacity:.38;cursor:not-allowed;transform:none}
+.chat-compose>small{flex-basis:100%;font-size:10px;color:#ff9aa7}
+@keyframes audioPulse{50%{box-shadow:0 0 0 6px #ed102933}}
+.chat-bubble{max-width:min(78%,620px);padding:13px 15px;border-radius:17px 17px 17px 5px;background:linear-gradient(145deg,#20202a,#171720);border:1px solid #ffffff12;box-shadow:0 6px 20px #0003}
+.chat-bubble.mine{border-radius:17px 17px 5px 17px;background:linear-gradient(145deg,#5b1423,#32101a);border-color:#ed102944}
+.chat-attachment audio{width:min(300px,65vw);height:42px;filter:sepia(.12) saturate(1.2)}
+@media(max-width:560px){.chat-compose{gap:6px;padding:8px;border-radius:15px}.chat-compose .chat-attach,.chat-send-button{width:39px;height:39px;border-radius:12px}.chat-compose>input:not([type=file]){height:41px;padding:0 10px;font-size:11px}.chat-bubble{max-width:92%}}
+/* O menu inferior foi removido: em telas pequenas a navegação abre pelo botão lateral. */
+.mobile-nav{display:none!important}

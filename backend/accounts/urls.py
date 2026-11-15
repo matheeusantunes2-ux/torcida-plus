@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import CadastroView, MeuPerfilView, PerfilPublicoView
+from .search_views import BuscaGlobalView
 from .platform_admin_views import PlatformAdminOverviewView, PlatformAdminUsersView, PlatformAdminTorcidasView, PlatformAdminUserStatusView, PlatformAdminUserPasswordResetView, PlatformAdminTorcidaDetailView, PlatformAdminTorcidaMemberView, PlatformAdminAuditView
 
 urlpatterns = [
@@ -12,6 +13,7 @@ urlpatterns = [
     path("platform-admin/torcidas/", PlatformAdminTorcidasView.as_view(), name="platform-admin-torcidas"),
     path("platform-admin/torcidas/<int:torcida_id>/", PlatformAdminTorcidaDetailView.as_view(), name="platform-admin-torcida-detail"),
     path("platform-admin/torcidas/<int:torcida_id>/membros/<int:membro_id>/", PlatformAdminTorcidaMemberView.as_view(), name="platform-admin-torcida-member"),
+    path("busca/", BuscaGlobalView.as_view(), name="busca-global"),
     path("cadastro/", CadastroView.as_view(), name="cadastro"),
     path("perfil/", MeuPerfilView.as_view(), name="meu-perfil"),
     path(
