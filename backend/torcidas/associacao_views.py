@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from accounts.permissions import is_platform_admin
 from .models import Torcida, Membro, PlanoAssociacao, Associacao
+from .audit_views import registrar_atividade
 
 QR_SALT = "torcida-plus-membership-qr-v1"
 QR_MAX_AGE = 90
@@ -110,5 +111,7 @@ class ValidarCarteirinhaQRView(APIView):
             a=Associacao.objects.select_related("usuario","plano").get(pk=int(assoc_id),torcida=torcida,status=Associacao.Status.ATIVA)
             if not a.fim_em or a.fim_em<=timezone.now(): raise signing.BadSignature("expired membership")
         except (signing.BadSignature,ValueError,Associacao.DoesNotExist):
+            registrar_atividade(torcida,request.user,"validacao_qr_falha","Tentativa de validação de carteirinha recusada.")
             return Response({"valido":False,"mensagem":"Carteirinha inválida, expirada ou de outra torcida."})
+        registrar_atividade(torcida,request.user,"validacao_qr_sucesso",f"Carteirinha validada para associação #{a.id}.")
         return Response({"valido":True,"associado":a.usuario.get_username(),"plano":a.plano.nome,"validade":a.fim_em})
