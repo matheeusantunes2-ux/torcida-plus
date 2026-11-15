@@ -12,7 +12,8 @@ def health_check(request):
     redis_ok = False
     probe_key = f"health:probe:{uuid.uuid4().hex}"
     try:
-        redis_ok = bool(cache.set(probe_key, "ok", timeout=10) and cache.get(probe_key) == "ok")
+        cache.set(probe_key, "ok", timeout=10)
+        redis_ok = cache.get(probe_key) == "ok"
     except Exception:
         redis_ok = False
     finally:
