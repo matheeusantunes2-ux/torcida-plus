@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Torcida, Membro, ConviteTorcida, AtividadePelotao, PlanoAssociacao, Associacao
+from .models import Torcida, Membro, ConviteTorcida, AtividadePelotao, PlanoAssociacao, Associacao, PagamentoAssociacao
 
 
 class MembroInline(admin.TabularInline):
@@ -56,3 +56,11 @@ class AssociacaoAdmin(admin.ModelAdmin):
     list_filter = ("status", "torcida", "plano")
     search_fields = ("usuario__username", "torcida__nome", "plano__nome")
     readonly_fields = ("criado_em", "atualizado_em")
+
+
+@admin.register(PagamentoAssociacao)
+class PagamentoAssociacaoAdmin(admin.ModelAdmin):
+    list_display = ("id", "associacao", "valor", "vencimento", "status", "pago_em", "confirmado_por")
+    list_filter = ("status", "vencimento")
+    search_fields = ("associacao__usuario__username", "associacao__torcida__nome")
+    readonly_fields = ("criado_em", "pago_em", "confirmado_por")
