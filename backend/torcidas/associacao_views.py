@@ -29,7 +29,13 @@ def _exigir_gestor(request, torcida):
         raise PermissionDenied("Somente a administração da torcida pode executar esta ação.")
 
 class PlanosAssociacaoView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        # A consulta pública de planos não expõe dados pessoais; a gestão exige login.
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [permission() for permission in self.permission_classes]
     def get(self, request, torcida_id):
         torcida = get_object_or_404(Torcida, pk=torcida_id)
         planos = PlanoAssociacao.objects.filter(torcida=torcida, ativo=True).order_by("valor", "nome")
