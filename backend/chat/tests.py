@@ -161,3 +161,48 @@ class PelotaoChatScopeTests(APITestCase):
         }, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["pelotao"], self.pelotao.pk)
+
+
+class LiveKitCallTokenTests(APITestCase):
+    def setUp(self):
+        from chat.models import ParticipanteConversa
+        self.user = User.objects.create_user(
+            username="livekit_member", password="Strong-Test-Password-2026!"
+        )
+        self.outsider = User.objects.create_user(
+            username="livekit_outsider", password="Strong-Test-Password-2026!"
+        )
+        self.torcida = Torcida.objects.create(nome="LiveKit FC", slug="livekit-fc")
+        Membro.objects.create(usuario=self.user, torcida=self.torcida, papel="membro")
+        self.conversa = Conversa.objects.create(
+            torcida=self.torcida, tipo=Conversa.Tipo.PRIVADA, criada_por=self.user
+        )
+        ParticipanteConversa.objects.create(conversa=self.conversa, usuario=self.user)
+
+    def test_usuario_sem_participacao_nao_recebe_token(self):
+        self.client.force_authenticate(self.outsider)
+        response = self.client.post(
+            f"/api/chat/conversas/{self.conversa.pk}/chamada/token/"
+        )
+        self.assertEqual(response.status_code, 404)
+
+    @patch("chat.calls.api.AccessToken")
+    @patch.dict("os.environ", {
+        "LIVEKIT_URL": "https://calls.example.com/",
+        "LIVEKIT_API_KEY": "test-key",
+        "LIVEKIT_API_SECRET": "test-secret",
+    })
+    def test_url_https_e_convertida_para_wss_ao_emitir_token(self, access_token):
+        token_builder = access_token.return_value
+        token_builder.with_identity.return_value = token_builder
+        token_builder.with_name.return_value = token_builder
+        token_builder.with_ttl.return_value = token_builder
+        token_builder.with_grants.return_value = token_builder
+        token_builder.to_jwt.return_value = "token-de-teste"
+        self.client.force_authenticate(self.user)
+        response = self.client.post(
+            f"/api/chat/conversas/{self.conversa.pk}/chamada/token/"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["server_url"], "wss://calls.example.com")
+        self.assertEqual(response.data["token"], "token-de-teste")

@@ -31,10 +31,17 @@ class CriarTokenSalaView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        server_url = os.getenv("LIVEKIT_URL")
+        server_url = (os.getenv("LIVEKIT_URL") or "").strip().rstrip("/")
+        # O LiveKit JS/React espera ws:// ou wss://. Alguns painéis de
+        # hospedagem exibem o endpoint como https://; convertemos o esquema
+        # sem alterar host, porta ou caminho.
+        if server_url.startswith("https://"):
+            server_url = "wss://" + server_url[len("https://"):]
+        elif server_url.startswith("http://"):
+            server_url = "ws://" + server_url[len("http://"):]
         api_key = os.getenv("LIVEKIT_API_KEY")
         api_secret = os.getenv("LIVEKIT_API_SECRET")
-        if not all((server_url, api_key, api_secret)):
+        if not all((server_url, api_key, api_secret)) or not server_url.startswith(("wss://", "ws://")):
             return Response(
                 {"detail": "Serviço de chamadas ainda não configurado."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
