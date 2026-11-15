@@ -158,3 +158,28 @@ class Associacao(models.Model):
 
     def __str__(self):
         return f"{self.usuario} - {self.torcida} ({self.status})"
+
+
+class PagamentoAssociacao(models.Model):
+    class Status(models.TextChoices):
+        PENDENTE = "pendente", "Pendente"
+        PAGO = "pago", "Pago"
+        ATRASADO = "atrasado", "Atrasado"
+        CANCELADO = "cancelado", "Cancelado"
+
+    associacao = models.ForeignKey(Associacao, on_delete=models.CASCADE, related_name="pagamentos")
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    vencimento = models.DateField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDENTE, db_index=True)
+    pago_em = models.DateTimeField(null=True, blank=True)
+    confirmado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="pagamentos_associacao_confirmados")
+    observacao = models.CharField(max_length=240, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["vencimento", "id"]
+        constraints = [models.UniqueConstraint(fields=["associacao", "vencimento"], name="pagamento_assoc_venc_unico")]
+        indexes = [models.Index(fields=["status", "vencimento"], name="pag_assoc_status_venc_idx")]
+
+    def __str__(self):
+        return f"{self.associacao_id} - {self.vencimento} ({self.status})"
