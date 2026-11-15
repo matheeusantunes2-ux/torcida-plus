@@ -75,3 +75,26 @@ class ItemCarrinho(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["usuario", "produto"], name="carrinho_produto_unico")]
+
+
+class MovimentacaoEstoque(models.Model):
+    class Tipo(models.TextChoices):
+        RESERVA = "reserva", "Reserva para pedido"
+        DEVOLUCAO = "devolucao", "Devolução por cancelamento"
+
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT, related_name="movimentacoes_estoque")
+    pedido = models.ForeignKey(Pedido, on_delete=models.PROTECT, related_name="movimentacoes_estoque")
+    tipo = models.CharField(max_length=12, choices=Tipo.choices)
+    quantidade = models.PositiveIntegerField()
+    saldo_anterior = models.PositiveIntegerField()
+    saldo_posterior = models.PositiveIntegerField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criado_em"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["produto", "pedido", "tipo"],
+                name="store_stock_move_order_product_type_uniq",
+            )
+        ]
