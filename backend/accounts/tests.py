@@ -137,3 +137,33 @@ class PlatformAdminDashboardTests(APITestCase):
         response = self.client.get("/api/auth/platform-admin/audit/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("results", response.data)
+
+
+from django.contrib.auth import get_user_model
+from rest_framework.test import APITestCase
+from torcidas.models import Torcida, Membro
+from .models import Perfil
+
+
+class BuscaGlobalTests(APITestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.member = User.objects.create_user(username="busca_membro", password="Strong-Test-Password-2026!")
+        self.other = User.objects.create_user(username="busca_outro", password="Strong-Test-Password-2026!")
+        self.outsider = User.objects.create_user(username="busca_fora", password="Strong-Test-Password-2026!")
+        self.torcida = Torcida.objects.create(nome="Busca FC", slug="busca-fc")
+        Membro.objects.create(usuario=self.member, torcida=self.torcida)
+        Membro.objects.create(usuario=self.other, torcida=self.torcida)
+        Perfil.objects.create(usuario=self.other, nome_exibicao="Torcedor de teste")
+
+    def test_busca_retorna_perfil_de_membro_da_mesma_torcida(self):
+        self.client.force_authenticate(self.member)
+        response = self.client.get("/api/auth/busca/?q=Torcedor")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["perfis"][0]["username"], "busca_outro")
+
+    def test_busca_nao_expoe_perfil_de_usuario_de_fora(self):
+        self.client.force_authenticate(self.outsider)
+        response = self.client.get("/api/auth/busca/?q=Torcedor")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["perfis"], [])
