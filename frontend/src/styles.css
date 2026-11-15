@@ -283,3 +283,12 @@
 .admin-sidebar-link svg{width:19px;height:19px;color:#ff6478}
 .admin-sidebar-link:hover,.admin-sidebar-link.selected{background:#ed102926;border-color:#ed1029}
 @media(max-width:700px){.home-feed-heading h2{font-size:19px}.home-feed-heading span{font-size:8px}}
+
+/* Refinamento visual dos controles e ícones */
+:root{--icon-muted:#b8b8c3;--surface-raised:#1d1d26}
+svg{flex:0 0 auto;stroke-width:1.9;vector-effect:non-scaling-stroke}
+button svg{width:18px;height:18px}
+.desktop-tabs button svg,.admin-sidebar-link svg{width:19px;height:19px}
+.header-actions button svg{width:19px;height:19px}
+.admin-only-note{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;margin:14px 0;border:1px solid #ed102944;border-radius:12px;background:linear-gradient(120deg,#ed102914,#17171e);color:#c8c8d2;font-size:12px;line-height:1.55}
+.admin-only-note svg{width:19px;height:19px;color:#ff5367}

@@ -13,6 +13,7 @@ class TorcidaViewSet(ModelViewSet):
             return queryset
         return queryset.filter(membros__usuario=self.request.user).distinct()
     def perform_create(self, serializer):
-        torcida = serializer.save()
+        from rest_framework.exceptions import PermissionDenied
         if not is_platform_admin(self.request.user):
-            Membro.objects.create(usuario=self.request.user, torcida=torcida, papel="admin")
+            raise PermissionDenied("Somente o administrador geral pode cadastrar a torcida principal.")
+        serializer.save()

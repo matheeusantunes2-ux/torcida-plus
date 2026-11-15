@@ -40,6 +40,16 @@ class IsolamentoTorcidasTests(APITestCase):
         response = self.client.get(f"/api/torcidas/{self.torcida.pk}/")
         self.assertEqual(response.status_code, 200)
 
+    def test_usuario_comum_nao_pode_criar_torcida(self):
+        self.client.force_authenticate(user=self.outro)
+        response = self.client.post(
+            "/api/torcidas/",
+            {"nome": "Nova Torcida", "slug": "nova-torcida", "cor_principal": "#202020"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Torcida.objects.filter(slug="nova-torcida").exists())
+
     def test_anomino_nao_pode_criar_torcida(self):
         response = self.client.post(
             "/api/torcidas/",
@@ -128,6 +138,19 @@ class ConvitesTorcidasTests(APITestCase):
         self.assertEqual(resposta.status_code, 404)
 
 class PlatformAdminTorcidasTests(APITestCase):
+    def test_superuser_pode_criar_torcida_principal(self):
+        admin_global = User.objects.create_superuser(
+            username="platform_admin_criar", email="", password="Strong-Test-Password-2026!"
+        )
+        self.client.force_authenticate(admin_global)
+        response = self.client.post(
+            "/api/torcidas/",
+            {"nome": "Torcida Oficial", "slug": "torcida-oficial", "cor_principal": "#202020"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(Torcida.objects.filter(slug="torcida-oficial").exists())
+
     def test_superuser_lista_torcidas_sem_ser_membro(self):
         admin_global = User.objects.create_superuser(
             username="platform_admin_torcidas", email="", password="Strong-Test-Password-2026!"

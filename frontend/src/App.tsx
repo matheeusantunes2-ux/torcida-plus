@@ -123,7 +123,7 @@ return <main className="app-shell"><header className="app-header"><button classN
 </div>:<>
 <button className="outline-btn" style={{justifySelf:"start"}} onClick={()=>setMoreSection("menu")}><ArrowLeft/> Voltar</button>
 {moreSection==="perfil"&&<Profile tokens={tokens} onTokens={save} api={API}/>}
-{moreSection==="pelotoes"&&<TorcidasPanel tokens={tokens} api={API}/>}
+{moreSection==="pelotoes"&&<TorcidasPanel tokens={tokens} api={API} isPlatformAdmin={isPlatformAdmin}/>}
 {moreSection==="lider"&&<LiderPelotaoPanel tokens={tokens} api={API}/>}
 {moreSection==="configuracoes"&&<section className="content-card"><h2><Settings/> Configurações e segurança</h2><p>Gerencie o acesso à sua conta neste dispositivo.</p><div style={{display:"grid",gap:10,marginTop:14}}><div><b>Sessão</b><small style={{display:"block",opacity:.75}}>Sua conta está conectada neste aparelho.</small></div><button className="outline-btn" onClick={logout}><LogOut/> Encerrar sessão neste dispositivo</button></div></section>}
 {moreSection==="admin"&&isPlatformAdmin&&<PlatformAdminPanel tokens={tokens} api={API}/>}
@@ -174,7 +174,7 @@ function PlatformAdminPanel({tokens,api}:{tokens:Tokens;api:string}){
  </section>;
 }
 
-function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
+function TorcidasPanel({tokens,api,isPlatformAdmin}:{tokens:Tokens;api:string;isPlatformAdmin:boolean}){
  const [items,setItems]=useState<any[]>([]);
  const [nome,setNome]=useState("Tropa do Matheus");
  const [slug,setSlug]=useState("tropa-do-matheus");
@@ -207,13 +207,14 @@ function TorcidasPanel({tokens,api}:{tokens:Tokens;api:string}){
  async function createInvite(id:number){setError("");setNotice("");try{const d=await request("/api/torcidas/"+id+"/convites/","POST",{validade_dias:7,limite_usos:20,papel:"membro"});setCreatedToken(d.token);setInviteTarget(id);setNotice("Convite do pelotão criado. Compartilhe o código com os integrantes.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar convite.");}}
  async function acceptInvite(e:FormEvent){e.preventDefault();setError("");setNotice("");try{await request("/api/torcidas/convites/aceitar/","POST",{token:invite.trim()});setInvite("");setNotice("Você entrou no pelotão pelo convite.");await load();}catch(e){setError(e instanceof Error?e.message:"Convite inválido.");}}
  return <div className="content-card" style={{gridColumn:"1 / -1"}}>
-  <h2><Users/> Meus pelotões</h2>
-  <p>Organize os pelotões da torcida principal, acompanhe os integrantes e envie convites.</p>
-  <form onSubmit={create} style={{display:"grid",gap:10,marginTop:14}}>
+  <h2><Users/> Torcida e pelotões</h2>
+  <p>A torcida principal é única. Os integrantes podem participar dos pelotões e entrar por convite.</p>
+  {!isPlatformAdmin&&<div className="admin-only-note"><ShieldCheck/><span>O cadastro da torcida principal é restrito ao administrador geral. Aqui você pode consultar seus pelotões e usar convites.</span></div>}
+  {isPlatformAdmin&&<form onSubmit={create} style={{display:"grid",gap:10,marginTop:14}}>
    <label>Nome do pelotão</label><input className="dark-input" value={nome} onChange={e=>{setNome(e.target.value);setSlug(e.target.value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""));}} required maxLength={120}/>
    <label>Identificador</label><input className="dark-input" value={slug} onChange={e=>setSlug(e.target.value)} required maxLength={140}/>
-   <button className="primary-btn" disabled={loading}>Criar pelotão</button>
-  </form>
+   <button className="primary-btn" disabled={loading}>Cadastrar torcida principal</button>
+  </form>}
   <form onSubmit={acceptInvite} style={{display:"grid",gap:10,marginTop:18}}>
    <label>Entrar com código de convite</label><input className="dark-input" value={invite} onChange={e=>setInvite(e.target.value)} placeholder="Cole o código recebido"/>
    <button className="outline-btn" disabled={!invite.trim()}>Aceitar convite</button>
