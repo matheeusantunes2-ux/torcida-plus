@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
             ("status", models.CharField(choices=[("aguardando", "Aguardando pagamento"), ("pago", "Pago"), ("cancelado", "Cancelado")], db_index=True, default="aguardando", max_length=12)),
             ("codigo", models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
             ("metodo_pagamento", models.CharField(blank=True, default="", max_length=12)),
-            ("checkout_url", models.URLField(blank=True, max_length=500)),
+            ("checkout_url", models.URLField(blank=True, default="", max_length=500)),
             ("preference_id", models.CharField(blank=True, default="", max_length=100)),
             ("payment_id", models.CharField(blank=True, default="", max_length=100)),
             ("expira_em", models.DateTimeField(blank=True, null=True)),
