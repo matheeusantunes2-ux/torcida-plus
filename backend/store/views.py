@@ -155,6 +155,33 @@ class MercadoPagoWebhookView(APIView):
   except MercadoPagoError:
    return Response({"detail":"Não foi possível consultar o pagamento."},status=502)
   external=str(payment.get("external_reference",""))
+
+  ticket_prefix="torcida-plus-event-ticket-"
+  if external.startswith(ticket_prefix):
+   from events.models import IngressoEvento
+   try:
+    ticket_id=int(external[len(ticket_prefix):])
+    ingresso=IngressoEvento.objects.select_related("evento").get(pk=ticket_id)
+   except (ValueError,IngressoEvento.DoesNotExist):
+    return Response({"detail":"Ingresso não encontrado."},status=200)
+   try:
+    paid_amount=Decimal(str(payment.get("transaction_amount","0"))).quantize(Decimal("0.01"))
+   except Exception:
+    return Response({"detail":"Valor do ingresso inválido."},status=400)
+   if paid_amount != ingresso.valor_total or payment.get("currency_id") != "BRL":
+    return Response({"detail":"Valor ou moeda do ingresso não corresponde ao pedido."},status=409)
+   status_mp=str(payment.get("status","")).lower()
+   with transaction.atomic():
+    ingresso=IngressoEvento.objects.select_for_update().get(pk=ticket_id)
+    if ingresso.expira_em and ingresso.expira_em <= __import__("django.utils.timezone",fromlist=["now"]).now() and status_mp=="approved":
+     return Response({"detail":"A reserva do ingresso expirou."},status=409)
+    ingresso.payment_id=str(payment.get("id",""))
+    if status_mp=="approved":
+     ingresso.status=IngressoEvento.Status.PAGO
+    elif status_mp in ("cancelled","rejected","refunded","charged_back"):
+     ingresso.status=IngressoEvento.Status.CANCELADO
+    ingresso.save(update_fields=["payment_id","status"])
+   return Response({"received":True},status=200)
   prefix="torcida-plus-order-"
   if not external.startswith(prefix):
    return Response({"detail":"Referência externa não reconhecida."},status=200)

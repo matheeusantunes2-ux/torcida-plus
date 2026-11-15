@@ -106,3 +106,26 @@ def validate_webhook_signature(signature, request_id, data_id):
     manifest = f"id:{str(data_id).lower()};request-id:{request_id};ts:{ts};"
     expected = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, received)
+
+
+def create_event_ticket_preference(ticket, method, frontend_url):
+    if method not in {"pix", "cartao", "boleto"}:
+        raise MercadoPagoError("Método de pagamento inválido.")
+    if not ticket.comprador.email:
+        raise MercadoPagoError("Adicione um e-mail válido ao seu cadastro antes de pagar.")
+    event = ticket.evento
+    excluded = {"pix": ["credit_card", "debit_card", "ticket", "atm", "prepaid_card"], "cartao": ["ticket", "bank_transfer", "atm"], "boleto": ["credit_card", "debit_card", "bank_transfer", "atm", "prepaid_card"]}[method]
+    base = frontend_url.rstrip("/")
+    payload = {
+        "items": [{"id": f"evento-{event.id}", "title": f"Ingresso: {event.titulo}"[:256], "description": f"TORCIDA+ - {ticket.quantidade} ingresso(s)", "quantity": ticket.quantidade, "currency_id": "BRL", "unit_price": float(event.valor)}],
+        "payer": {"email": ticket.comprador.email},
+        "external_reference": f"torcida-plus-event-ticket-{ticket.id}",
+        "statement_descriptor": "TORCIDA MAIS",
+        "payment_methods": {"excluded_payment_types": [{"id": value} for value in excluded]},
+        "back_urls": {"success": f"{base}/?event_ticket=success&ticket_id={ticket.id}", "pending": f"{base}/?event_ticket=pending&ticket_id={ticket.id}", "failure": f"{base}/?event_ticket=failure&ticket_id={ticket.id}"},
+        "auto_return": "approved",
+        "notification_url": os.getenv("MERCADO_PAGO_WEBHOOK_URL", "").strip() or None,
+        "metadata": {"torcida_plus_event_ticket_id": ticket.id},
+    }
+    payload = {key: value for key, value in payload.items() if value is not None}
+    return _request("/checkout/preferences", method="POST", payload=payload, idempotency_key=str(uuid5(NAMESPACE_URL, f"torcida-plus-event-ticket-{ticket.id}-{method}")))

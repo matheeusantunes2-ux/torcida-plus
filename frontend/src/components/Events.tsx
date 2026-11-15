@@ -20,6 +20,8 @@ export default function Events({ tokens, onTokens }: Props) {
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
  const [filter,setFilter]=useState("todos");
+ const [ticketStates,setTicketStates]=useState<Record<number,{pode_entrar:boolean;ingressos:any[]}>>({});
+ const [ticketBusy,setTicketBusy]=useState<number|null>(null);
 
  const api=useCallback(async(path:string,init:RequestInit={})=>{
   let token=tokens.access;
@@ -46,6 +48,22 @@ export default function Events({ tokens, onTokens }: Props) {
   finally{setLoading(false);}
  },[api]);
  useEffect(()=>{void load();},[load]);
+ useEffect(()=>{items.filter(x=>x.status==="publicado").forEach(x=>{if(!ticketStates[x.id])void loadTicket(x.id);});},[items]);
+
+
+ async function loadTicket(eventId:number){
+  try{const d=await api("/api/eventos/"+eventId+"/ingresso/");setTicketStates(v=>({...v,[eventId]:d}));}catch{/* O ingresso ainda não foi consultado. */}
+ }
+ async function buyTicket(item:EventItem){
+  setTicketBusy(item.id);setError("");setNotice("");
+  try{
+   const d=await api("/api/eventos/"+item.id+"/ingresso/",{method:"POST",body:JSON.stringify({quantidade:1,metodo_pagamento:"pix"})});
+   if(d.checkout_url){window.location.href=d.checkout_url;return;}
+   setNotice("Ingresso gratuito confirmado. Guarde o código: "+d.codigo);
+   await loadTicket(item.id);
+  }catch(e){setError(e instanceof Error?e.message:"Não foi possível emitir o ingresso.");}
+  finally{setTicketBusy(null);}
+ }
 
  function startEdit(item:EventItem){
   setEditing(item.id);setShowForm(true);
@@ -89,6 +107,6 @@ export default function Events({ tokens, onTokens }: Props) {
    <small>O servidor permite criar e editar eventos somente para administradores e moderadores da torcida.</small>
   </form>}
   <div className="events-toolbar"><div className="events-filters">{["todos","publicado","rascunho","cancelado","encerrado"].map(f=><button key={f} className={filter===f?"active":""} onClick={()=>setFilter(f)}>{f==="todos"?"Todos":f[0].toUpperCase()+f.slice(1)}</button>)}</div><button className="outline-btn" onClick={()=>void load()} disabled={loading}><RefreshCw size={15}/> Atualizar</button></div>
-  {loading?<div className="content-card">Carregando agenda...</div>:visible.length===0?<div className="content-card events-empty"><CalendarDays/><h3>Nenhum evento nesta categoria</h3><p>Quando houver jogos, encontros ou viagens cadastrados, eles aparecerão aqui.</p></div>:<div className="events-list">{visible.map(item=><article className="content-card event-card" key={item.id}><div className="event-card-top"><span className={"event-status status-"+item.status}>{item.status}</span><small>{item.torcida_nome}</small></div><h3>{item.titulo}</h3>{item.descricao&&<p>{item.descricao}</p>}<div className="event-meta"><span><CalendarDays size={15}/>{date(item.inicio_em)}</span>{item.local&&<span><MapPin size={15}/>{item.local}</span>}<span><Ticket size={15}/>{Number(item.valor)>0?money(item.valor):"Gratuito"}</span>{item.capacidade&&<span><Users size={15}/>{item.capacidade} vagas</span>}</div><div className="event-card-actions"><small>Organização: {item.criado_por_nome}</small><div><button className="outline-btn" onClick={()=>startEdit(item)}><Pencil size={14}/> Editar</button><button className="outline-btn" onClick={()=>void remove(item)} disabled={busy}><Trash2 size={14}/> Excluir</button></div></div></article>)}</div>}
+  {loading?<div className="content-card">Carregando agenda...</div>:visible.length===0?<div className="content-card events-empty"><CalendarDays/><h3>Nenhum evento nesta categoria</h3><p>Quando houver jogos, encontros ou viagens cadastrados, eles aparecerão aqui.</p></div>:<div className="events-list">{visible.map(item=><article className="content-card event-card" key={item.id}><div className="event-card-top"><span className={"event-status status-"+item.status}>{item.status}</span><small>{item.torcida_nome}</small></div><h3>{item.titulo}</h3>{item.descricao&&<p>{item.descricao}</p>}<div className="event-meta"><span><CalendarDays size={15}/>{date(item.inicio_em)}</span>{item.local&&<span><MapPin size={15}/>{item.local}</span>}<span><Ticket size={15}/>{Number(item.valor)>0?money(item.valor):"Gratuito"}</span>{item.capacidade&&<span><Users size={15}/>{item.capacidade} vagas</span>}</div><div className="event-card-actions"><small>Organização: {item.criado_por_nome}</small><div>{item.status==="publicado"&&<>{ticketStates[item.id]?.pode_entrar?<span className="ticket-confirmed"><Ticket size={14}/> Ingresso confirmado</span>:<button className="ticket-buy-button" onClick={()=>void buyTicket(item)} disabled={ticketBusy===item.id}><Ticket size={15}/>{ticketBusy===item.id?"Preparando...":Number(item.valor)>0?"Comprar ingresso · Pix":"Emitir ingresso gratuito"}</button>}</>}{teams.length>0&&<button className="outline-btn" onClick={()=>startEdit(item)}><Pencil size={14}/> Editar</button>}<button className="outline-btn" onClick={()=>void remove(item)} disabled={busy}><Trash2 size={14}/> Excluir</button></div></div></article>)}</div>}
  </div>;
 }
