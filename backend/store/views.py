@@ -143,9 +143,11 @@ class PaymentPreferenceView(APIView):
     return Response({"detail":"Este pedido não pertence à sua conta."},status=403)
    expirado = pedido.expira_em and pedido.expira_em <= timezone.now()
    expirado = expirado or (pedido.expira_em is None and pedido.criado_em <= timezone.now()-timedelta(minutes=30))
-   if expirado and pedido.status == Pedido.Status.AGUARDANDO and pedido.status_pagamento != "approved":
-    cancelar_pedido_e_devolver_estoque(pedido)
-    return Response({"detail":"O prazo de pagamento expirou. O estoque foi liberado; faça um novo pedido."},status=409)
+   if expirado and pedido.status == Pedido.Status.AGUARDANDO:
+    if pedido.status_pagamento == "nao_iniciado":
+     cancelar_pedido_e_devolver_estoque(pedido)
+     return Response({"detail":"O prazo de pagamento expirou. O estoque foi liberado; faça um novo pedido."},status=409)
+    return Response({"detail":"O prazo da reserva expirou. Estamos conferindo o status do pagamento antes de liberar o estoque."},status=409)
    if pedido.status == Pedido.Status.CANCELADO or pedido.status_pagamento == "approved":
     return Response({"detail":"Este pedido não pode receber um novo pagamento."},status=409)
   method=str(r.data.get("metodo_pagamento","")).lower()
