@@ -292,3 +292,29 @@ button svg{width:18px;height:18px}
 .header-actions button svg{width:19px;height:19px}
 .admin-only-note{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;margin:14px 0;border:1px solid #ed102944;border-radius:12px;background:linear-gradient(120deg,#ed102914,#17171e);color:#c8c8d2;font-size:12px;line-height:1.55}
 .admin-only-note svg{width:19px;height:19px;color:#ff5367}
+
+/* Composer de publicações — interface mobile-first */
+.home-feed-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.home-feed-heading>div{display:grid;gap:3px}
+.create-post-trigger,.composer-publish{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;background:linear-gradient(135deg,#ed1738,#a90e2c);color:#fff;font-weight:750;padding:11px 15px;cursor:pointer;box-shadow:0 7px 20px #ed17382b}
+.create-post-trigger svg,.composer-publish svg{width:18px;height:18px}
+.post-composer-card{margin:14px 0 20px;padding:18px;border:1px solid #ffffff16;border-radius:18px;background:linear-gradient(145deg,#20202a,#17171e);box-shadow:0 14px 34px #0003}
+.post-composer-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.post-composer-title h3{margin:3px 0 0;font-size:19px}
+.composer-eyebrow{font-size:10px;font-weight:800;letter-spacing:1.3px;color:#ff667b}
+.composer-close,.composer-image-preview button{display:grid;place-items:center;width:36px;height:36px;border:1px solid #ffffff20;border-radius:11px;background:#ffffff08;color:#ddd;cursor:pointer}
+.composer-close svg,.composer-image-preview button svg{width:18px;height:18px}
+.post-composer-input{display:block;width:100%;min-height:124px;resize:vertical;box-sizing:border-box;padding:14px;border:1px solid #ffffff1c;border-radius:13px;background:#111118;color:#f7f7fa;font:inherit;line-height:1.5;outline:none}
+.post-composer-input:focus{border-color:#ed1738;box-shadow:0 0 0 3px #ed17381c}
+.post-composer-footer,.composer-submit-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px}
+.post-composer-footer>small,.composer-submit-row>small{color:#9999a8;font-size:11px}
+.composer-attach{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #ffffff20;border-radius:11px;color:#e8e8ee;font-size:13px;font-weight:650;cursor:pointer}
+.composer-attach svg{width:18px;height:18px;color:#ff6479}
+.composer-file-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.composer-image-preview{display:flex;align-items:center;gap:12px;margin-top:12px;padding:9px;border:1px solid #ffffff16;border-radius:12px;background:#111118}
+.composer-image-preview img{width:62px;height:62px;object-fit:cover;border-radius:9px}
+.composer-image-preview>div{display:grid;gap:4px;flex:1;min-width:0}
+.composer-image-preview b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.composer-image-preview small{font-size:11px;color:#9999a8}
+.composer-publish:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+@media(max-width:520px){.home-feed-heading{align-items:flex-start}.create-post-trigger{padding:10px 11px;font-size:12px}.post-composer-card{padding:14px}.composer-submit-row{align-items:flex-end}.composer-submit-row>small{max-width:55%}}
