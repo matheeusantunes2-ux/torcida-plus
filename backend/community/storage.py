@@ -4,7 +4,7 @@ from pathlib import Path
 import cloudinary
 import cloudinary.api
 import cloudinary.uploader
-import requests
+from urllib.request import urlopen
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage, Storage
 from django.utils.deconstruct import deconstructible
@@ -51,9 +51,8 @@ class CloudinaryImageStorage(Storage):
     def _open(self, name, mode="rb"):
         if not self._configured():
             return self._fallback().open(name, mode)
-        response = requests.get(self.url(name), timeout=30)
-        response.raise_for_status()
-        return ContentFile(response.content, name=Path(name).name)
+        with urlopen(self.url(name), timeout=30) as response:
+            return ContentFile(response.read(), name=Path(name).name)
 
     def delete(self, name):
         if not self._configured():
