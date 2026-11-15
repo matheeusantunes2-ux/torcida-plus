@@ -22,7 +22,7 @@ class PublicacaoImageView(View):
             dados = signing.loads(
                 token,
                 salt="torcida-publicacao-media-v1",
-                max_age=300,
+                max_age=86400,
             )
         except signing.BadSignature:
             raise Http404
