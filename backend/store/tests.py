@@ -158,6 +158,19 @@ class StoreFlowTests(TestCase):
         self.assertFalse(pedido.estoque_devolvido)
         self.assertEqual(self.produto.quantidade, 2)
 
+    def test_pagamento_pendente_expirado_nao_libera_estoque_sem_conciliacao(self):
+        pedido = self._criar_pedido_expirado(status_pagamento="pending")
+        response = self.client.post(
+            f"/api/loja/pedidos/{pedido.id}/pagar/",
+            {"metodo_pagamento": "pix"}, format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+        pedido.refresh_from_db()
+        self.produto.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO)
+        self.assertFalse(pedido.estoque_devolvido)
+        self.assertEqual(self.produto.quantidade, 2)
+
     def test_pagamento_de_pedido_expirado_e_bloqueado_e_devolve_estoque(self):
         pedido = self._criar_pedido_expirado()
         response = self.client.post(
