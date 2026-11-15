@@ -1,7 +1,9 @@
 from decimal import Decimal
+from datetime import timedelta
 from rest_framework.permissions import AllowAny
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -96,7 +98,7 @@ class CheckoutView(APIView):
     if p.quantidade<row.quantidade:return Response({"detail":"Estoque insuficiente para "+p.nome},status=409)
     total+=p.preco*row.quantidade
    fields={k:r.data.get(k,"") for k in required+["complemento","observacoes"]}
-   pedido=Pedido.objects.create(torcida_id=tid,comprador=r.user,total=total,**fields)
+   pedido=Pedido.objects.create(torcida_id=tid,comprador=r.user,total=total,expira_em=timezone.now()+timedelta(minutes=30),**fields)
    for row in rows:
     p=Produto.objects.select_for_update().get(pk=row.produto_id)
     ItemPedido.objects.create(pedido=pedido,produto=p,nome_produto=p.nome,preco_unitario=p.preco,quantidade=row.quantidade,total=p.preco*row.quantidade)
@@ -135,11 +137,17 @@ class PedidosView(APIView):
 class PaymentPreferenceView(APIView):
  permission_classes=[IsAuthenticated]
  def post(self,r,pk):
-  pedido=get_object_or_404(Pedido,pk=pk)
-  if pedido.comprador_id != r.user.id:
-   return Response({"detail":"Este pedido não pertence à sua conta."},status=403)
-  if pedido.status == Pedido.Status.CANCELADO or pedido.status_pagamento == "approved":
-   return Response({"detail":"Este pedido não pode receber um novo pagamento."},status=409)
+  with transaction.atomic():
+   pedido=get_object_or_404(Pedido.objects.select_for_update(),pk=pk)
+   if pedido.comprador_id != r.user.id:
+    return Response({"detail":"Este pedido não pertence à sua conta."},status=403)
+   expirado = pedido.expira_em and pedido.expira_em <= timezone.now()
+   expirado = expirado or (pedido.expira_em is None and pedido.criado_em <= timezone.now()-timedelta(minutes=30))
+   if expirado and pedido.status == Pedido.Status.AGUARDANDO and pedido.status_pagamento != "approved":
+    cancelar_pedido_e_devolver_estoque(pedido)
+    return Response({"detail":"O prazo de pagamento expirou. O estoque foi liberado; faça um novo pedido."},status=409)
+   if pedido.status == Pedido.Status.CANCELADO or pedido.status_pagamento == "approved":
+    return Response({"detail":"Este pedido não pode receber um novo pagamento."},status=409)
   method=str(r.data.get("metodo_pagamento","")).lower()
   if method not in ("pix","cartao","boleto"):
    return Response({"detail":"Escolha Pix, cartão ou boleto."},status=400)
