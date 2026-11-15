@@ -61,3 +61,34 @@ class AssociacaoSaaSTests(APITestCase):
         response=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/validar-qr/",{"qr_token":qr.data["qr_token"]},format="json")
         self.assertTrue(response.data["valido"])
         self.assertTrue(AtividadePelotao.objects.filter(torcida=self.torcida,acao="validacao_qr_sucesso").exists())
+
+
+    def test_cobranca_paga_ativa_associacao_e_renova_validade(self):
+        from datetime import date
+        from .models import PagamentoAssociacao
+        a=Associacao.objects.create(torcida=self.torcida,usuario=self.user,plano=self.paid)
+        self.client.force_authenticate(self.admin)
+        created=self.client.post(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/",{"associacao_id":a.id,"valor":"25.00","vencimento":date.today().isoformat()},format="json")
+        self.assertEqual(created.status_code,201)
+        paid=self.client.patch(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/{created.data['id']}/",{"status":"pago"},format="json")
+        self.assertEqual(paid.status_code,200)
+        a.refresh_from_db()
+        self.assertEqual(a.status,Associacao.Status.ATIVA)
+        self.assertEqual((a.fim_em-a.inicio_em).days,30)
+        self.assertEqual(PagamentoAssociacao.objects.get(pk=created.data["id"]).status,PagamentoAssociacao.Status.PAGO)
+        self.assertTrue(Membro.objects.filter(usuario=self.user,torcida=self.torcida).exists())
+
+    def test_cobranca_vencida_aparece_como_atrasada(self):
+        from datetime import date, timedelta
+        from .models import PagamentoAssociacao
+        a=Associacao.objects.create(torcida=self.torcida,usuario=self.user,plano=self.paid)
+        PagamentoAssociacao.objects.create(associacao=a,valor="25.00",vencimento=date.today()-timedelta(days=1))
+        self.client.force_authenticate(self.admin)
+        response=self.client.get(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/")
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.data[0]["status"],PagamentoAssociacao.Status.ATRASADO)
+
+    def test_membro_comum_nao_acessa_financeiro_da_torcida(self):
+        self.client.force_authenticate(self.user)
+        response=self.client.get(f"/api/torcidas/{self.torcida.id}/associacoes/pagamentos/")
+        self.assertEqual(response.status_code,404)
