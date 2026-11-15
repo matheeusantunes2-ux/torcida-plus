@@ -1,0 +1,13 @@
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+class Migration(migrations.Migration):
+    dependencies=[("torcidas","0005_merge_20261110"),migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
+    operations=[
+        migrations.CreateModel(name="PlanoAssociacao",fields=[("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),("nome",models.CharField(max_length=100)),("descricao",models.CharField(blank=True,max_length=300)),("valor",models.DecimalField(decimal_places=2,default=0,max_digits=10)),("duracao_dias",models.PositiveIntegerField(default=365)),("ativo",models.BooleanField(default=True)),("criado_em",models.DateTimeField(auto_now_add=True)),("torcida",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="planos_associacao",to="torcidas.torcida"))],options={"ordering":["valor","nome"]}),
+        migrations.CreateModel(name="Associacao",fields=[("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False,verbose_name="ID")),("status",models.CharField(choices=[("pendente","Pendente"),("ativa","Ativa"),("expirada","Expirada"),("cancelada","Cancelada")],db_index=True,default="pendente",max_length=12)),("inicio_em",models.DateTimeField(blank=True,null=True)),("fim_em",models.DateTimeField(blank=True,db_index=True,null=True)),("criado_em",models.DateTimeField(auto_now_add=True)),("atualizado_em",models.DateTimeField(auto_now=True)),("aprovado_por",models.ForeignKey(blank=True,null=True,on_delete=django.db.models.deletion.SET_NULL,related_name="associacoes_aprovadas",to=settings.AUTH_USER_MODEL)),("plano",models.ForeignKey(on_delete=django.db.models.deletion.PROTECT,related_name="associacoes",to="torcidas.planoassociacao")),("torcida",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="associacoes",to="torcidas.torcida")),("usuario",models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,related_name="associacoes_torcida",to=settings.AUTH_USER_MODEL))],options={"ordering":["-criado_em"]}),
+        migrations.AddConstraint(model_name="planoassociacao",constraint=models.UniqueConstraint(fields=("torcida","nome"),name="plano_nome_unico_torcida")),
+        migrations.AddConstraint(model_name="associacao",constraint=models.UniqueConstraint(condition=~models.Q(status="cancelada"),fields=("torcida","usuario"),name="associacao_ativa_unica_usuario_torcida")),
+        migrations.AddIndex(model_name="associacao",index=models.Index(fields=["torcida","status","fim_em"],name="assoc_tor_status_fim_idx")),
+    ]
