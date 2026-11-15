@@ -63,6 +63,8 @@ class PublicacaoImageView(View):
             raise Http404
 
         content_type, _ = mimetypes.guess_type(arquivo_field.name)
+        if kind == "audio" and arquivo_field.name.lower().endswith(".webm"):
+            content_type = "audio/webm"
         response = FileResponse(arquivo, content_type=content_type or "application/octet-stream", as_attachment=(kind == "arquivos"), filename=arquivo_field.name.rsplit("/", 1)[-1])
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"

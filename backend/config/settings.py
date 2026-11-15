@@ -60,6 +60,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "daphne",
     "django.contrib.staticfiles",
+    "cloudinary_storage",
+    "cloudinary",
     "rest_framework",
     "corsheaders",
     "accounts",
@@ -140,6 +142,19 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# No Render, arquivos de mídia são armazenados no Cloudinary (CLOUDINARY_URL).
+# Em desenvolvimento/CI sem credenciais, permanece o armazenamento local.
+if os.getenv("CLOUDINARY_URL"):
+    STORAGES = {
+        "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+else:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Limites do upload de anexos do chat (arquivos maiores são encaminhados em streaming temporário).
