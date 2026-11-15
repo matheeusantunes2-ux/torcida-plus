@@ -127,12 +127,25 @@ class StoreFlowTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("MERCADO_PAGO_ACCESS_TOKEN", response.data["detail"])
 
-    def test_admin_pode_carregar_dez_produtos_demo(self):
+    def test_admin_da_torcida_nao_pode_carregar_catalogo_demo(self):
         self.client.force_authenticate(self.admin)
+        response = self.client.post("/api/loja/catalogo-demo/", {"torcida": self.torcida.id}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_superusuario_pode_carregar_dez_produtos_demo(self):
+        global_admin = get_user_model().objects.create_superuser(username="admin_global_catalogo", email="", password="Strong-Test-Password-2026!")
+        self.client.force_authenticate(global_admin)
         response = self.client.post("/api/loja/catalogo-demo/", {"torcida": self.torcida.id}, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Produto.objects.filter(torcida=self.torcida, ativo=True).count(), 11)
         self.assertEqual(response.data["total"], 10)
+
+    def test_admin_da_torcida_nao_pode_criar_editar_ou_excluir_produtos(self):
+        self.client.force_authenticate(self.admin)
+        payload = {"torcida": self.torcida.id, "nome": "Restrito", "preco": "15.00", "quantidade": 2}
+        self.assertEqual(self.client.post("/api/loja/produtos/", payload, format="json").status_code, 403)
+        self.assertEqual(self.client.patch(f"/api/loja/produtos/{self.produto.id}/", {"nome": "Alterado"}, format="json").status_code, 403)
+        self.assertEqual(self.client.delete(f"/api/loja/produtos/{self.produto.id}/").status_code, 403)
 
 
 

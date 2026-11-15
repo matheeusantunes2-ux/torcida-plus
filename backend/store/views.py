@@ -25,7 +25,7 @@ class ProdutosView(APIView):
   return Response(ProdutoSerializer(qs,many=True,context={"request":r}).data)
  def post(self,r):
   tid=r.data.get("torcida")
-  if not tid or not gerente(r.user,tid): return Response({"detail":"Somente administradores e moderadores podem cadastrar produtos."},status=403)
+  if not tid or not is_platform_admin(r.user): return Response({"detail":"Somente o administrador da plataforma pode cadastrar produtos."},status=403)
   s=ProdutoSerializer(data=r.data,context={"request":r});s.is_valid(raise_exception=True);s.save(torcida_id=tid)
   return Response(s.data,status=201)
 
@@ -33,11 +33,11 @@ class ProdutoDetailView(APIView):
  permission_classes=[IsAuthenticated]
  def patch(self,r,pk):
   p=get_object_or_404(Produto,pk=pk)
-  if not gerente(r.user,p.torcida_id): return Response({"detail":"Sem permissão."},status=403)
+  if not is_platform_admin(r.user): return Response({"detail":"Somente o administrador da plataforma pode editar produtos."},status=403)
   s=ProdutoSerializer(p,data=r.data,partial=True,context={"request":r});s.is_valid(raise_exception=True);s.save();return Response(s.data)
  def delete(self,r,pk):
   p=get_object_or_404(Produto,pk=pk)
-  if not gerente(r.user,p.torcida_id): return Response({"detail":"Sem permissão."},status=403)
+  if not is_platform_admin(r.user): return Response({"detail":"Somente o administrador da plataforma pode remover produtos."},status=403)
   p.ativo=False;p.save(update_fields=["ativo","atualizado_em"]);return Response(status=204)
 
 class CarrinhoView(APIView):
@@ -210,8 +210,8 @@ class CatalogoDemoView(APIView):
  permission_classes=[IsAuthenticated]
  def post(self,r):
   tid=r.data.get("torcida")
-  if not tid or not gerente(r.user,tid):
-   return Response({"detail":"Somente administradores e moderadores podem carregar o catálogo de demonstração."},status=403)
+  if not tid or not is_platform_admin(r.user):
+   return Response({"detail":"Somente o administrador da plataforma pode carregar o catálogo de demonstração."},status=403)
   exemplos=[
    ("Camisa oficial","Vestuário","Camisa demonstrativa em tecido esportivo.",79.90,30),
    ("Camisa treino","Vestuário","Modelo leve para treino e dia a dia.",69.90,25),
