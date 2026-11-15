@@ -83,6 +83,19 @@ def get_payment(payment_id):
     return _request(f"/v1/payments/{payment_id}")
 
 
+def search_order_payments(order_id):
+    """Consulta o estado real dos pagamentos antes de liberar uma reserva expirada."""
+    from urllib.parse import urlencode
+
+    query = urlencode({
+        "external_reference": f"torcida-plus-order-{order_id}",
+        "sort": "date_created",
+        "criteria": "desc",
+        "limit": 20,
+    })
+    return _request(f"/v1/payments/search?{query}")
+
+
 def validate_webhook_signature(signature, request_id, data_id):
     secret = os.getenv("MERCADO_PAGO_WEBHOOK_SECRET", "").strip()
     if not secret or not signature or not request_id or not data_id:
