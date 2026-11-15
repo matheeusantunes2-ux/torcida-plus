@@ -40,7 +40,7 @@ jobs:
           missing=0
           for name in POSTGRES_HOST POSTGRES_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD MERCADO_PAGO_ACCESS_TOKEN; do
             if [ -z "${!name}" ]; then
-              echo "::error::GitHub Actions secret ausente: ${name/POSTGRES_HOST/TORCIDA_DB_HOST}"
+              echo "::error::Variável de conexão ausente: $name (configure o secret correspondente no GitHub)"
               missing=1
             fi
           done
