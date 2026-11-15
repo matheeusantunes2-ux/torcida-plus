@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from accounts.permissions import is_platform_admin
 from torcidas.models import Membro
-from .models import Produto, ItemCarrinho, Pedido, ItemPedido
+from .models import Produto, ItemCarrinho, Pedido, ItemPedido, MovimentacaoEstoque
 from .serializers import ProdutoSerializer, ItemCarrinhoSerializer, PedidoSerializer
 from .payments import MercadoPagoError, create_preference, get_payment, validate_webhook_signature
 
@@ -24,8 +24,14 @@ def cancelar_pedido_e_devolver_estoque(pedido):
   return False
  for item in pedido.itens.select_related("produto").all():
   produto = Produto.objects.select_for_update().get(pk=item.produto_id)
+  saldo_anterior = produto.quantidade
   produto.quantidade = F("quantidade") + item.quantidade
   produto.save(update_fields=["quantidade", "atualizado_em"])
+  produto.refresh_from_db(fields=["quantidade"])
+  MovimentacaoEstoque.objects.get_or_create(
+   produto=produto, pedido=pedido, tipo=MovimentacaoEstoque.Tipo.DEVOLUCAO,
+   defaults={"quantidade":item.quantidade,"saldo_anterior":saldo_anterior,"saldo_posterior":produto.quantidade},
+  )
  pedido.estoque_devolvido = True
  pedido.status = Pedido.Status.CANCELADO
  pedido.save(update_fields=["estoque_devolvido", "status"])
@@ -102,7 +108,12 @@ class CheckoutView(APIView):
    for row in rows:
     p=Produto.objects.select_for_update().get(pk=row.produto_id)
     ItemPedido.objects.create(pedido=pedido,produto=p,nome_produto=p.nome,preco_unitario=p.preco,quantidade=row.quantidade,total=p.preco*row.quantidade)
+    saldo_anterior=p.quantidade
     p.quantidade-=row.quantidade;p.save(update_fields=["quantidade","atualizado_em"])
+    MovimentacaoEstoque.objects.create(
+     produto=p,pedido=pedido,tipo=MovimentacaoEstoque.Tipo.RESERVA,
+     quantidade=row.quantidade,saldo_anterior=saldo_anterior,saldo_posterior=p.quantidade,
+    )
    ItemCarrinho.objects.filter(pk__in=[x.pk for x in rows]).delete()
   return Response(PedidoSerializer(pedido).data,status=201)
 
