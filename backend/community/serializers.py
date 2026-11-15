@@ -61,6 +61,7 @@ class SignedPublicationFileField(serializers.FileField):
 
 
 class PublicacaoSerializer(serializers.ModelSerializer):
+    texto = serializers.CharField(max_length=5000, required=False, allow_blank=True)
     imagem = SignedPublicationImageField(required=False, allow_null=True)
     audio = SignedPublicationFileField("audio", required=False, allow_null=True)
     arquivo = SignedPublicationFileField("arquivos", required=False, allow_null=True)
