@@ -92,3 +92,60 @@ class AcessoImagemPublicacaoTests(TestCase):
         self.publicacao.save(update_fields=["status"])
         response = self.client.get(f"{path}?token={token}")
         self.assertEqual(response.status_code, 404)
+
+
+class AnexosPublicacaoTests(TestCase):
+    def setUp(self):
+        self.autor = User.objects.create_user(username="autor_anexos", password="Senha-Forte-2026!")
+        self.membro = User.objects.create_user(username="membro_anexos", password="Senha-Forte-2026!")
+        self.intruso = User.objects.create_user(username="intruso_anexos", password="Senha-Forte-2026!")
+        self.torcida = Torcida.objects.create(nome="Torcida Anexos", slug="torcida-anexos")
+        Membro.objects.create(usuario=self.autor, torcida=self.torcida)
+        Membro.objects.create(usuario=self.membro, torcida=self.torcida)
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.override = override_settings(MEDIA_ROOT=self.temp_dir.name)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.client = APIClient()
+
+    def test_upload_audio_e_documento_com_publicacao(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_authenticate(user=self.autor)
+        response = self.client.post("/api/comunidade/publicacoes/", {
+            "torcida": self.torcida.pk,
+            "texto": " ",
+            "audio": SimpleUploadedFile("voz.webm", b"audio-test", content_type="audio/webm"),
+            "arquivo": SimpleUploadedFile("regras.pdf", b"%PDF-1.4 test", content_type="application/pdf"),
+        }, format="multipart")
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data["audio"])
+        self.assertTrue(response.data["arquivo"])
+        post = Publicacao.objects.get(pk=response.data["id"])
+        self.assertEqual(post.status, Publicacao.Status.PENDENTE)
+
+    def test_extensao_de_anexo_invalida_e_rejeitada(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_authenticate(user=self.autor)
+        response = self.client.post("/api/comunidade/publicacoes/", {
+            "torcida": self.torcida.pk,
+            "texto": "Anexo",
+            "arquivo": SimpleUploadedFile("script.exe", b"not-safe", content_type="application/octet-stream"),
+        }, format="multipart")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Publicacao.objects.filter(texto="Anexo").exists())
+
+    def test_link_de_audio_exige_membro_ativo(self):
+        from django.core.files.base import ContentFile
+        self.client.force_authenticate(user=self.autor)
+        post = Publicacao.objects.create(torcida=self.torcida, autor=self.autor, texto="Áudio protegido", status=Publicacao.Status.APROVADA)
+        post.audio.save("voz.webm", ContentFile(b"audio-data"), save=True)
+        self.client.force_authenticate(user=self.membro)
+        response = self.client.get("/api/comunidade/publicacoes/")
+        audio_url = next(item["audio"] for item in response.data if item["id"] == post.pk)
+        from urllib.parse import urlparse
+        path = urlparse(audio_url).path
+        token = urlparse(audio_url).query
+        Membro.objects.filter(usuario=self.membro, torcida=self.torcida).delete()
+        denied = self.client.get(f"{path}?{token}")
+        self.assertEqual(denied.status_code, 404)

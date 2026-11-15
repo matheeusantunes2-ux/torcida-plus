@@ -214,10 +214,11 @@ class PublicacaoSerializer(serializers.ModelSerializer):
     def validate_arquivo(self, upload):
         return self._validate_upload(upload, {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp"}, 20 * 1024 * 1024, "documento")
 
-    def validate_texto(self, texto):
-        if not texto.strip():
-            raise serializers.ValidationError(
-                "A publicação não pode estar vazia."
-            )
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if not attrs.get("texto") and not any(attrs.get(k) for k in ("imagem", "audio", "arquivo")):
+            raise serializers.ValidationError({"texto": "Escreva algo ou anexe uma mídia."})
+        return attrs
 
+    def validate_texto(self, texto):
         return texto.strip()
