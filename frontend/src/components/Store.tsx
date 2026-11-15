@@ -146,7 +146,9 @@ export default function Store({ tokens, onTokens }: Props) {
   } catch (e) { setError(e instanceof Error ? e.message : "Erro ao criar o pedido."); }
   finally { setBusy(false); }
  }
- const total = cart.reduce((s, i) => s + Number(i.produto.preco) * i.quantidade, 0);\n const categories = ["Todos", ...Array.from(new Set(products.map(p => p.categoria).filter(Boolean)))];\n const visibleProducts = products.filter(p => (category === "Todos" || p.categoria === category) && (p.nome + " " + p.descricao + " " + p.categoria).toLowerCase().includes(catalogSearch.toLowerCase())).sort((a,b) => sortBy === "menor" ? Number(a.preco)-Number(b.preco) : sortBy === "maior" ? Number(b.preco)-Number(a.preco) : a.nome.localeCompare(b.nome));
+ const total = cart.reduce((s, i) => s + Number(i.produto.preco) * i.quantidade, 0);
+ const categories = ["Todos", ...Array.from(new Set(products.map(p => p.categoria).filter(Boolean)))];
+ const visibleProducts = products.filter(p => (category === "Todos" || p.categoria === category) && (p.nome + " " + p.descricao + " " + p.categoria).toLowerCase().includes(catalogSearch.toLowerCase())).sort((a,b) => sortBy === "menor" ? Number(a.preco)-Number(b.preco) : sortBy === "maior" ? Number(b.preco)-Number(a.preco) : a.nome.localeCompare(b.nome));
 
  return <div className="store-wrap">
   <header className="store-head store-hero"><div className="store-hero-copy"><span className="kicker"><ShoppingBag size={14}/> LOJA OFICIAL TORCIDA+</span><h2>Vista a paixão.<br/><em>Viva a torcida.</em></h2><p>Produtos oficiais, novidades e itens exclusivos da nossa comunidade.</p><button className="store-hero-cta" onClick={()=>{setTab("Catálogo");document.querySelector(".store-catalog-toolbar")?.scrollIntoView({behavior:"smooth",block:"start"});}}>Explorar produtos <ArrowRight size={16}/></button></div><div className="store-hero-art"><span>TORCIDA+</span><ShoppingBag/></div><button className="store-refresh" aria-label="Atualizar loja" onClick={load} disabled={loading}><RefreshCw size={16}/></button></header>
