@@ -203,16 +203,34 @@ if not DEBUG:
 # Redis é obrigatório em produção para tickets e grupos WebSocket compartilhados.
 REDIS_URL = os.getenv("REDIS_URL")
 if REDIS_URL:
+    # Redis do Render pode apresentar latência após períodos de inatividade.
+    # Timeouts curtos e health checks evitam conexões presas indefinidamente.
+    REDIS_CONNECTION_KWARGS = {
+        "socket_connect_timeout": float(os.getenv("REDIS_CONNECT_TIMEOUT", "5")),
+        "socket_timeout": float(os.getenv("REDIS_SOCKET_TIMEOUT", "8")),
+        "health_check_interval": int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "30")),
+    }
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [REDIS_URL]},
+            "CONFIG": {
+                "hosts": [{
+                    "address": REDIS_URL,
+                    "connection_kwargs": REDIS_CONNECTION_KWARGS,
+                }],
+                "capacity": int(os.getenv("CHANNEL_CAPACITY", "100")),
+                "expiry": int(os.getenv("CHANNEL_EXPIRY", "60")),
+                "group_expiry": int(os.getenv("CHANNEL_GROUP_EXPIRY", "86400")),
+            },
         }
     }
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "connection_pool_kwargs": REDIS_CONNECTION_KWARGS,
+            },
         }
     }
 elif DEBUG:
