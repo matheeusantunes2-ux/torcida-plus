@@ -6,6 +6,9 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.core.management import call_command
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -111,6 +114,62 @@ class StoreFlowTests(TestCase):
         self.assertEqual(self.produto.quantidade, 2)
         pedido.refresh_from_db()
         self.assertFalse(pedido.estoque_devolvido)
+
+    def _criar_pedido_expirado(self, status_pagamento="nao_iniciado"):
+        ItemCarrinho.objects.create(usuario=self.member, produto=self.produto, quantidade=1)
+        response = self.client.post("/api/loja/checkout/", self.endereco, format="json")
+        pedido = Pedido.objects.get(pk=response.data["id"])
+        pedido.expira_em = timezone.now() - timedelta(minutes=1)
+        pedido.status_pagamento = status_pagamento
+        pedido.save(update_fields=["expira_em", "status_pagamento"])
+        return pedido
+
+    @patch("store.management.commands.expirar_pedidos.search_order_payments", return_value={"results": []})
+    def test_rotina_expira_pedido_sem_pagamento_e_libera_estoque(self, _search):
+        pedido = self._criar_pedido_expirado()
+        self.produto.refresh_from_db()
+        self.assertEqual(self.produto.quantidade, 2)
+        call_command("expirar_pedidos")
+        pedido.refresh_from_db()
+        self.produto.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.CANCELADO)
+        self.assertTrue(pedido.estoque_devolvido)
+        self.assertEqual(self.produto.quantidade, 3)
+
+    @patch("store.management.commands.expirar_pedidos.search_order_payments", return_value={"results": [{"id": "mp-123", "status": "approved"}]})
+    def test_rotina_reconcilia_pagamento_aprovado_antes_de_cancelar(self, _search):
+        pedido = self._criar_pedido_expirado(status_pagamento="pending")
+        call_command("expirar_pedidos")
+        pedido.refresh_from_db()
+        self.produto.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.PAGO)
+        self.assertEqual(pedido.status_pagamento, "approved")
+        self.assertEqual(pedido.mercado_pago_payment_id, "mp-123")
+        self.assertFalse(pedido.estoque_devolvido)
+        self.assertEqual(self.produto.quantidade, 2)
+
+    @patch("store.management.commands.expirar_pedidos.search_order_payments", return_value={"results": [{"id": "mp-pending", "status": "pending"}]})
+    def test_rotina_nao_libera_estoque_com_pagamento_ainda_pendente(self, _search):
+        pedido = self._criar_pedido_expirado(status_pagamento="pending")
+        call_command("expirar_pedidos")
+        pedido.refresh_from_db()
+        self.produto.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.AGUARDANDO)
+        self.assertFalse(pedido.estoque_devolvido)
+        self.assertEqual(self.produto.quantidade, 2)
+
+    def test_pagamento_de_pedido_expirado_e_bloqueado_e_devolve_estoque(self):
+        pedido = self._criar_pedido_expirado()
+        response = self.client.post(
+            f"/api/loja/pedidos/{pedido.id}/pagar/",
+            {"metodo_pagamento": "pix"}, format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+        pedido.refresh_from_db()
+        self.produto.refresh_from_db()
+        self.assertEqual(pedido.status, Pedido.Status.CANCELADO)
+        self.assertTrue(pedido.estoque_devolvido)
+        self.assertEqual(self.produto.quantidade, 3)
 
     def test_produto_rejeita_preco_zero(self):
         serializer = ProdutoSerializer(self.produto, data={"preco": "0.00"}, partial=True)
