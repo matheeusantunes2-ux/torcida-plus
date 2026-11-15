@@ -250,6 +250,28 @@ class MercadoPagoWebhookView(APIView):
    pedido.save(update_fields=["mercado_pago_payment_id","status_pagamento","status","estoque_devolvido"])
   return Response({"received":True},status=200)
 
+class MovimentacoesEstoqueView(APIView):
+ permission_classes=[IsAuthenticated]
+ def get(self,r):
+  if not is_platform_admin(r.user):
+   return Response({"detail":"Somente o administrador da plataforma pode consultar o histórico de estoque."},status=403)
+  qs=MovimentacaoEstoque.objects.select_related("produto","pedido","pedido__comprador").all()
+  torcida=r.query_params.get("torcida")
+  produto=r.query_params.get("produto")
+  pedido=r.query_params.get("pedido")
+  if torcida: qs=qs.filter(produto__torcida_id=torcida)
+  if produto: qs=qs.filter(produto_id=produto)
+  if pedido: qs=qs.filter(pedido_id=pedido)
+  data=[{
+   "id":m.id,"produto_id":m.produto_id,"produto":m.produto.nome,
+   "pedido_id":m.pedido_id,"comprador":m.pedido.comprador_id,
+   "tipo":m.tipo,"quantidade":m.quantidade,
+   "saldo_anterior":m.saldo_anterior,"saldo_posterior":m.saldo_posterior,
+   "criado_em":m.criado_em,
+  } for m in qs[:500]]
+  return Response({"results":data,"limit":500})
+
+
 class CatalogoDemoView(APIView):
  permission_classes=[IsAuthenticated]
  def post(self,r):
