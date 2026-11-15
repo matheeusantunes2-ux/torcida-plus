@@ -14,6 +14,9 @@ export default function Store({ tokens, onTokens }: Props) {
  const [team, setTeam] = useState(localStorage.getItem("torcida_loja_id") || "");
  const [products, setProducts] = useState<Product[]>([]), [cart, setCart] = useState<Cart[]>([]), [orders, setOrders] = useState<Order[]>([]);
  const [tab, setTab] = useState("Catálogo"), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState("");
+ const [catalogSearch, setCatalogSearch] = useState("");
+ const [category, setCategory] = useState("Todos");
+ const [sortBy, setSortBy] = useState("destaques");
  const [edit, setEdit] = useState<Product | null>(null), [form, setForm] = useState({ nome: "", descricao: "", categoria: "Vestuário", preco: "", quantidade: "0" }), [photo, setPhoto] = useState<File | null>(null);
  const [finalOrder, setFinalOrder] = useState<Order | null>(null), [paymentMethod, setPaymentMethod] = useState("pix"), [canManageOrders, setCanManageOrders] = useState(false);
  const [delivery, setDelivery] = useState({ nome_destinatario: "", telefone: "", cep: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", uf: "", observacoes: "" });
