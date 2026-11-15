@@ -41,7 +41,7 @@ def executar():
         }, format="json")
 
         print("3. Criar torcida:", r.status_code, getattr(r, "data", r.content))
-        assert r.status_code == 201, "Criação da torcida falhou"
+        assert r.status_code == 403, "Usuário comum não deveria criar a torcida principal"
 
         r = a.get("/api/torcidas/")
         print("4. Listagem A:", r.status_code, getattr(r, "data", r.content))
