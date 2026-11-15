@@ -90,6 +90,8 @@ class StoreFlowTests(TestCase):
         self.client.post("/api/loja/checkout/", self.endereco, format="json")
         response_membro = self.client.get("/api/loja/estoque/movimentacoes/")
         self.assertEqual(response_membro.status_code, 403)
+        self.admin.is_superuser = True
+        self.admin.save(update_fields=["is_superuser"])
         self.client.force_authenticate(self.admin)
         response_admin = self.client.get("/api/loja/estoque/movimentacoes/")
         self.assertEqual(response_admin.status_code, 200)
