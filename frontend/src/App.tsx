@@ -5,6 +5,7 @@ import Store from "./components/Store";
 import Events from "./components/Events";
 import Profile from "./components/Profile";
 import LandingPage from "./components/LandingPage";
+import Membership from "./components/Membership";
 import "@livekit/components-styles";
 import {Home,MessageCircle,CalendarDays,ShoppingCart,Menu,Search,Bell,UserCircle,ShieldCheck,Video,Phone,PhoneOff,Mic,MicOff,ArrowLeft,LoaderCircle,LogOut,Heart,MessageSquare,Share2,Users,Ticket,Settings,ChevronRight,Flame,FileUp,MonitorUp,MonitorOff,ImagePlus,X,Send} from "lucide-react";
 const API=import.meta.env.VITE_API_URL||"";
@@ -72,7 +73,7 @@ const [tokens,setTokens]=useState<Tokens>(()=>({access:sessionStorage.getItem("t
 const [posts,setPosts]=useState<Post[]>([]),[newPost,setNewPost]=useState(""),[postImage,setPostImage]=useState<File|null>(null),[postAudio,setPostAudio]=useState<File|null>(null),[postFile,setPostFile]=useState<File|null>(null),[recording,setRecording]=useState(false),[composerOpen,setComposerOpen]=useState(false),[torcidaId,setTorcidaId]=useState(""),[publishing,setPublishing]=useState(false),[feedLoading,setFeedLoading]=useState(false),[feedError,setFeedError]=useState(""),[feedNotice,setFeedNotice]=useState(""),[comments,setComments]=useState<Record<number,Comment[]>>({}),[openComments,setOpenComments]=useState<number|null>(null),[commentDrafts,setCommentDrafts]=useState<Record<number,string>>({}),[commentBusy,setCommentBusy]=useState<number|null>(null),[notices,setNotices]=useState<Notice[]>([]),[unread,setUnread]=useState(0),[noticeLoading,setNoticeLoading]=useState(false),[noticeError,setNoticeError]=useState("");
 const recorderRef=useRef<MediaRecorder|null>(null),recordingStreamRef=useRef<MediaStream|null>(null),audioChunksRef=useRef<Blob[]>([]);
 const [mode,setMode]=useState<"login"|"register">("login"),[username,setUsername]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[tab,setTab]=useState<Tab>(()=>new URLSearchParams(window.location.search).has("store_payment")?"Loja":new URLSearchParams(window.location.search).has("event_ticket")?"Eventos":"Início"),[room,setRoom]=useState<Room|null>(null),[callStatus,setCallStatus]=useState<"connecting"|"connected"|"error">("connecting"),[callError,setCallError]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
-const [moreSection,setMoreSection]=useState<"menu"|"perfil"|"pelotoes"|"lider"|"configuracoes"|"admin"|"moderacao">("menu");
+const [moreSection,setMoreSection]=useState<"menu"|"perfil"|"pelotoes"|"lider"|"configuracoes"|"admin"|"moderacao"|"associados">("menu");
 const [menuOpen,setMenuOpen]=useState(false);const [isPlatformAdmin,setIsPlatformAdmin]=useState(false);
 const [globalSearch,setGlobalSearch]=useState("");const [searchResults,setSearchResults]=useState<{perfis:any[];eventos:any[]}>({perfis:[],eventos:[]});const [searchOpen,setSearchOpen]=useState(false);const [profilePeek,setProfilePeek]=useState<any|null>(null);const [profilePeekLoading,setProfilePeekLoading]=useState(false);
 function save(v:Tokens){setTokens(v);v.access?sessionStorage.setItem("torcida_access",v.access):sessionStorage.removeItem("torcida_access");v.refresh?sessionStorage.setItem("torcida_refresh",v.refresh):sessionStorage.removeItem("torcida_refresh")}
@@ -142,11 +143,13 @@ return <main className="app-shell"><header className="app-header"><button classN
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("perfil")}><UserCircle/><b>Meu perfil</b><small>Dados e conta</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("pelotoes")}><Users/><b>Minhas torcidas</b><small>Comunidades que participo</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("lider") }><ShieldCheck/><b>Painel do pelotão</b><small>Integrantes e convites</small></button>
+<button className="content-card membership-menu-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("associados")}><Ticket/><b>Associados e carteirinha</b><small>Planos, adesão e credencial digital</small></button>
 <button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("configuracoes")}><Settings/><b>Configurações</b><small>Privacidade e segurança</small></button>
 {isPlatformAdmin&&<><button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("admin")}><ShieldCheck/><b>Painel administrativo</b><small>Gestão da plataforma</small></button><button className="content-card" style={{textAlign:"left",cursor:"pointer"}} onClick={()=>setMoreSection("moderacao")}><ShieldCheck/><b>Moderação</b><small>Aprovação de publicações</small></button></>}
 </div>:<>
 <button className="outline-btn" style={{justifySelf:"start"}} onClick={()=>setMoreSection("menu")}><ArrowLeft/> Voltar</button>
 {moreSection==="perfil"&&<Profile tokens={tokens} onTokens={save} api={API}/>}
+{moreSection==="associados"&&<Membership tokens={tokens} api={API}/>}
 {moreSection==="pelotoes"&&<TorcidasPanel tokens={tokens} api={API} isPlatformAdmin={isPlatformAdmin}/>}
 {moreSection==="lider"&&<LiderPelotaoPanel tokens={tokens} api={API}/>}
 {moreSection==="configuracoes"&&<section className="content-card"><h2><Settings/> Configurações e segurança</h2><p>Gerencie o acesso à sua conta neste dispositivo.</p><div style={{display:"grid",gap:10,marginTop:14}}><div><b>Sessão</b><small style={{display:"block",opacity:.75}}>Sua conta está conectada neste aparelho.</small></div><button className="outline-btn" onClick={logout}><LogOut/> Encerrar sessão neste dispositivo</button></div></section>}
