@@ -51,6 +51,7 @@ class Pedido(models.Model):
     mercado_pago_preference_id = models.CharField(max_length=100, blank=True, default="")
     mercado_pago_payment_id = models.CharField(max_length=100, blank=True, default="")
     checkout_url = models.URLField(max_length=500, blank=True, default="")
+    estoque_devolvido = models.BooleanField(default=False)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
