@@ -27,7 +27,7 @@ class Publicacao(models.Model):
         null=True,
     )
     audio = models.FileField(upload_to="publicacoes/audio/", blank=True, null=True, storage=CloudinaryRawStorage())
-    arquivo = models.FileField(upload_to="publicacoes/arquivos/", blank=True, null=True, storage=PUBLICATION_ATTACHMENT_STORAGE)
+    arquivo = models.FileField(upload_to="publicacoes/arquivos/", blank=True, null=True, storage=CloudinaryRawStorage())
     criada_em = models.DateTimeField(auto_now_add=True)
     atualizada_em = models.DateTimeField(auto_now=True)
 
