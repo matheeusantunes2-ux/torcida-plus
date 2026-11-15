@@ -60,7 +60,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "daphne",
     "django.contrib.staticfiles",
-    "cloudinary_storage",
     "cloudinary",
     "rest_framework",
     "corsheaders",
@@ -147,12 +146,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Em desenvolvimento/CI sem credenciais, permanece o armazenamento local.
 if os.getenv("CLOUDINARY_URL"):
     STORAGES = {
-        "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+        "default": {"BACKEND": "community.storage.CloudinaryImageStorage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
 else:
     STORAGES = {
-        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "default": {"BACKEND": "community.storage.CloudinaryImageStorage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

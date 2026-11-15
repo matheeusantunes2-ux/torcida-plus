@@ -1,12 +1,6 @@
 from django.conf import settings
 from django.db import models
-import os
-
-if os.getenv("CLOUDINARY_URL"):
-    from cloudinary_storage.storage import RawMediaCloudinaryStorage
-    PUBLICATION_ATTACHMENT_STORAGE = RawMediaCloudinaryStorage()
-else:
-    PUBLICATION_ATTACHMENT_STORAGE = None
+from .storage import CloudinaryRawStorage
 
 
 class Publicacao(models.Model):
@@ -32,7 +26,7 @@ class Publicacao(models.Model):
         blank=True,
         null=True,
     )
-    audio = models.FileField(upload_to="publicacoes/audio/", blank=True, null=True, storage=PUBLICATION_ATTACHMENT_STORAGE)
+    audio = models.FileField(upload_to="publicacoes/audio/", blank=True, null=True, storage=CloudinaryRawStorage())
     arquivo = models.FileField(upload_to="publicacoes/arquivos/", blank=True, null=True, storage=PUBLICATION_ATTACHMENT_STORAGE)
     criada_em = models.DateTimeField(auto_now_add=True)
     atualizada_em = models.DateTimeField(auto_now=True)
