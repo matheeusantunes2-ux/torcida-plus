@@ -170,3 +170,8 @@
 @media(max-width:560px){.chat-compose{gap:6px;padding:8px;border-radius:15px}.chat-compose .chat-attach,.chat-send-button{width:39px;height:39px;border-radius:12px}.chat-compose>input:not([type=file]){height:41px;padding:0 10px;font-size:11px}.chat-bubble{max-width:92%}}
 /* O menu inferior foi removido: em telas pequenas a navegação abre pelo botão lateral. */
 .mobile-nav{display:none!important}
+
+.ticket-buy-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:37px;padding:9px 13px;border:1px solid #ff526b;border-radius:10px;background:linear-gradient(135deg,#f32b47,#a90d25);color:#fff;font-size:10px;font-weight:800;box-shadow:0 7px 20px #ed102933}
+.ticket-buy-button:disabled{opacity:.55;cursor:wait}
+.ticket-confirmed{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border:1px solid #287c50;border-radius:10px;background:#143b2a;color:#9bf0bb;font-size:10px;font-weight:800}
+.event-card-actions>div{align-items:center;flex-wrap:wrap}
