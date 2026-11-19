@@ -3,6 +3,7 @@ import tempfile
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
+from django.core import signing
 from django.core.files.base import ContentFile
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -71,7 +72,7 @@ class AcessoImagemPublicacaoTests(TestCase):
         path, token = self.obter_url_assinada()
         with patch(
             "community.media_views.signing.loads",
-            side_effect=__import__("django.core.signing", fromlist=["SignatureExpired"]).SignatureExpired,
+            side_effect=signing.SignatureExpired,
         ) as carregar:
             response = self.client.get(f"{path}?token={token}")
         self.assertEqual(response.status_code, 404)
