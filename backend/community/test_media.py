@@ -1,5 +1,6 @@
 import base64
 import tempfile
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from django.core.files.base import ContentFile
@@ -65,6 +66,20 @@ class AcessoImagemPublicacaoTests(TestCase):
             f"/media/publicacoes/{self.publicacao.imagem.name.split('/', 1)[1]}"
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_token_de_imagem_expira_em_cinco_minutos(self):
+        path, token = self.obter_url_assinada()
+        with patch(
+            "community.media_views.signing.loads",
+            side_effect=__import__("django.core.signing", fromlist=["SignatureExpired"]).SignatureExpired,
+        ) as carregar:
+            response = self.client.get(f"{path}?token={token}")
+        self.assertEqual(response.status_code, 404)
+        carregar.assert_called_once_with(
+            token,
+            salt="torcida-publicacao-media-v1",
+            max_age=300,
+        )
 
     def test_membro_recebe_imagem_assinada(self):
         path, token = self.obter_url_assinada()
