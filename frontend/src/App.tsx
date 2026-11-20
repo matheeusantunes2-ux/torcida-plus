@@ -232,8 +232,8 @@ function TorcidasPanel({tokens,api,isPlatformAdmin}:{tokens:Tokens;api:string;is
  async function assignPelotao(m:any,value:string){if(selectedTorcida===null)return;setMemberBusy(m.id);setError("");try{const d=await request("/api/torcidas/"+selectedTorcida+"/membros/"+m.id+"/","PATCH",{papel:m.papel,pelotao_id:value||null});setMembers(v=>v.map(x=>x.id===m.id?d:x));setNotice("Integrante vinculado ao pelotão.");}catch(e){setError(e instanceof Error?e.message:"Falha ao vincular integrante.");}finally{setMemberBusy(null);}}
  async function createInvite(id:number){setError("");setNotice("");try{const d=await request("/api/torcidas/"+id+"/convites/","POST",{validade_dias:7,limite_usos:20,papel:"membro"});setCreatedToken(d.token);setInviteTarget(id);setNotice("Convite do pelotão criado. Compartilhe o código com os integrantes.");}catch(e){setError(e instanceof Error?e.message:"Falha ao criar convite.");}}
  async function acceptInvite(e:FormEvent){e.preventDefault();setError("");setNotice("");try{await request("/api/torcidas/convites/aceitar/","POST",{token:invite.trim()});setInvite("");setNotice("Você entrou no pelotão pelo convite.");await load();}catch(e){setError(e instanceof Error?e.message:"Convite inválido.");}}
- return <div className="content-card" style={{gridColumn:"1 / -1"}}>
-  <h2><Users/> Torcida e pelotões</h2>
+ return <div className="content-card tp-pelotoes" style={{gridColumn:"1 / -1"}}>
+  <div className="tp-pelotoes-heading"><span className="tp-pelotoes-icon"><Users/></span><div><h2>Pelotões</h2><p>A força da torcida está em cada grupo. Organize os integrantes e convide novos membros.</p></div></div>
   <p>A torcida principal é única. Os integrantes podem participar dos pelotões e entrar por convite.</p>
   {!isPlatformAdmin&&<div className="admin-only-note"><ShieldCheck/><span>O cadastro da torcida principal é restrito ao administrador geral. Aqui você pode consultar seus pelotões e usar convites.</span></div>}
   {isPlatformAdmin&&<form onSubmit={create} style={{display:"grid",gap:10,marginTop:14}}>
@@ -245,8 +245,8 @@ function TorcidasPanel({tokens,api,isPlatformAdmin}:{tokens:Tokens;api:string;is
    <label>Entrar com código de convite</label><input className="dark-input" value={invite} onChange={e=>setInvite(e.target.value)} placeholder="Cole o código recebido"/>
    <button className="outline-btn" disabled={!invite.trim()}>Aceitar convite</button>
   </form>
-  <div style={{marginTop:18}}><h3>Pelotões da torcida</h3>{loading&&<p>Carregando...</p>}{!loading&&items.length===0&&<p>Nenhum pelotão vinculado a esta conta ainda.</p>}
-   {items.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #333"}}><div><b>{t.nome}</b><small style={{display:"block",opacity:.7}}>ID {t.id} · {t.slug}</small></div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="outline-btn" onClick={()=>showMembers(t.id)}>Ver membros</button><button className="outline-btn" onClick={()=>createInvite(t.id)}>Gerar convite</button></div></div>)}
+  <div className="tp-pelotoes-list" style={{marginTop:18}}><h3>Seus pelotões</h3>{loading&&<p>Carregando...</p>}{!loading&&items.length===0&&<p>Nenhum pelotão vinculado a esta conta ainda.</p>}
+   {items.map(t=><div className="tp-pelotao-card" key={t.id}><div className="tp-pelotao-identity"><span className="tp-pelotao-mark"><Users/></span><span><b>{t.nome}</b><small>ID {t.id} · {t.slug}</small></span></div><div className="tp-pelotao-actions"><button className="outline-btn" onClick={()=>showMembers(t.id)}>Ver membros</button><button className="outline-btn" onClick={()=>createInvite(t.id)}>Gerar convite</button></div></div>)}
   </div>
   {selectedTorcida!==null&&<section style={{marginTop:18,padding:14,border:"1px solid #444",borderRadius:12}}>
    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}><h3>Integrantes do pelotão #{selectedTorcida}</h3><button className="outline-btn" onClick={()=>setSelectedTorcida(null)}>Fechar</button></div>
